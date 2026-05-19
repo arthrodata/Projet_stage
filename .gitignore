@@ -1,0 +1,9 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+.env
+*.csv
+*.xlsx
+data/raw/*
+data/processed/*
