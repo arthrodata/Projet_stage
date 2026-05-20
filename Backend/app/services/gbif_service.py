@@ -43,20 +43,31 @@ def search_gbif(
         EXPORT_FILE.parent.mkdir(parents=True, exist_ok=True)
         pd.DataFrame(columns=[
             "country",
-            "locality",
+            "coordinates",
             "eventDate",
             "basisOfRecord",
             "datasetName",
             "family",
             "genus",
             "species"
-        ]).to_csv(EXPORT_FILE, index=False)
+        ]).to_csv(EXPORT_FILE, index=False, encoding="utf-8-sig")
         return []
 
     df["genus"] = df["genus"].fillna("")
     df["species"] = df["species"].fillna("")
     df["scientificName"] = df["scientificName"].fillna("")
     df["country"] = df["country"].fillna("")
+
+    def format_coordinates(row):
+        latitude = row.get("decimalLatitude")
+        longitude = row.get("decimalLongitude")
+
+        if pd.isna(latitude) or pd.isna(longitude):
+            return None
+
+        return f"{latitude}, {longitude}"
+
+    df["coordinates"] = df.apply(format_coordinates, axis=1)
 
     if genus:
         df = df[df["genus"].str.contains(genus, case=False, na=False) |
@@ -71,7 +82,7 @@ def search_gbif(
 
     columns = [
         "country",
-        "locality",
+        "coordinates",
         "eventDate",
         "basisOfRecord",
         "datasetName",
@@ -83,6 +94,6 @@ def search_gbif(
     df = df.fillna("Non renseigné")
 
     EXPORT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(EXPORT_FILE, index=False)
+    df.to_csv(EXPORT_FILE, index=False, encoding="utf-8-sig")
 
     return df.to_dict(orient="records")
