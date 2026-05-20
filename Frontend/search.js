@@ -1,4 +1,4 @@
-console.log("search.js chargement");
+console.log("search.js chargé");
 
 const API_URL = "http://127.0.0.1:8000";
 const STORAGE_KEY = "tortricidae:last_search_v1";
@@ -41,7 +41,7 @@ function afficherResultats(data) {
         countText.textContent = "0 résultat trouvé.";
         resultsBody.innerHTML = `
             <tr>
-                <td colspan="7" class="text-center text-muted">
+                <td colspan="8" class="text-center text-muted">
                     Aucun résultat trouvé.
                 </td>
             </tr>
@@ -50,18 +50,19 @@ function afficherResultats(data) {
     }
 
     const firstTen = data.slice(0, 10);
-    countText.textContent = `${data.length} rÃ©sultat(s) rÃ©cupÃ©rÃ©(s). Affichage des 10 premiers.`;
+    countText.textContent = `${data.length} résultat(s) récupéré(s). Affichage des 10 premiers.`;
 
     firstTen.forEach(function (item) {
         const row = document.createElement("tr");
         row.innerHTML = `
-            <td>${item.country || "Non renseignÃ©"}</td>
-            <td>${item.locality || "Non renseignÃ©"}</td>
-            <td>${item.eventDate || "Non renseignÃ©"}</td>
-            <td>${item.datasetName || "Non renseignÃ©"}</td>
-            <td>${item.family || "Non renseignÃ©"}</td>
-            <td>${item.genus || "Non renseignÃ©"}</td>
-            <td>${item.species || "Non renseignÃ©"}</td>
+            <td>${item.country || "Non renseigné"}</td>
+            <td>${item.coordinates || "Non renseigné"}</td>
+            <td>${item.eventDate || "Non renseigné"}</td>
+            <td>${item.basisOfRecord || "Non renseigné"}</td>
+            <td>${item.datasetName || "Non renseigné"}</td>
+            <td>${item.family || "Non renseigné"}</td>
+            <td>${item.genus || "Non renseigné"}</td>
+            <td>${item.species || "Non renseigné"}</td>
         `;
         resultsBody.appendChild(row);
     });
@@ -97,7 +98,7 @@ function restoreLastSearch() {
         }
 
         afficherResultats(saved.data);
-        message.innerHTML = `<span class="text-muted">RÃ©sultats restaurÃ©s (aprÃ¨s rechargement).</span>`;
+        message.innerHTML = `<span class="text-muted">Résultats restaurés (après rechargement).</span>`;
     } catch {
         // ignore parse errors
     }
@@ -111,7 +112,7 @@ async function runSearch() {
         setLoading(true);
 
         const url = `${API_URL}/search?${params.toString()}`;
-        console.log("URL appelÃ©e :", url);
+        console.log("URL appelée :", url);
 
         const response = await fetch(url);
         if (!response.ok) throw new Error("Erreur API");
@@ -120,10 +121,10 @@ async function runSearch() {
         afficherResultats(data);
         saveLastSearch({ params: { species, genus, country }, data });
 
-        message.innerHTML = `<span class="text-success">Recherche terminÃ©e.</span>`;
+        message.innerHTML = `<span class="text-success">Recherche terminée.</span>`;
     } catch (error) {
         console.error(error);
-        message.innerHTML = `<span class="text-danger">Erreur : impossible de rÃ©cupÃ©rer les donnÃ©es.</span>`;
+        message.innerHTML = `<span class="text-danger">Erreur : impossible de récupérer les données.</span>`;
     } finally {
         setLoading(false);
     }
@@ -146,7 +147,7 @@ resetBtn.addEventListener("click", function () {
     countryInput.value = "";
 
     message.innerHTML = "";
-    countText.textContent = "Aucune recherche lancÃ©e.";
+    countText.textContent = "Aucune recherche lancée.";
 
     try {
         localStorage.removeItem(STORAGE_KEY);
@@ -154,15 +155,15 @@ resetBtn.addEventListener("click", function () {
 
     resultsBody.innerHTML = `
         <tr>
-            <td colspan="7" class="text-center text-muted">
-                Aucun rÃ©sultat Ã  afficher.
+            <td colspan="8" class="text-center text-muted">
+                Aucun résultat à afficher.
             </td>
         </tr>
     `;
 });
 
 exportBtn.addEventListener("click", function () {
-    alert("Le fichier CSV est généré au backend dans le dossier exports/resultats.csv.");
+    alert("Le fichier CSV est généré côté backend dans le dossier exports/resultats.csv.");
 });
 
 restoreLastSearch();

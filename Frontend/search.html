@@ -14,15 +14,15 @@
 <div class="container mt-5">
 
     <h1 class="mb-2">Recherche Tortricidae</h1>
-    <p class="text-muted mb-4">Test simple Frontend ↔ Backend FastAPI</p>
+    <p class="text-muted mb-4">Test simple Frontend -> Backend FastAPI</p>
 
     <div class="card p-4 mb-4 shadow-sm">
 
-        <!-- PAS DE FORM ICI POUR ÉVITER LE RECHARGEMENT -->
+        <!-- PAS DE FORM ICI POUR eVITER LE RECHARGEMENT -->
         <div class="row g-3">
 
             <div class="col-md-4">
-                <label for="species" class="form-label">Espèce</label>
+                <label for="species" class="form-label">Espéce</label>
                 <input 
                     type="text" 
                     id="species" 
@@ -78,18 +78,19 @@
             <thead class="table-dark">
                 <tr>
                     <th>Country</th>
-                    <th>Localisation</th>
+                    <th>Coordinates</th>
                     <th>Date</th>
+                    <th>Basis</th>
                     <th>Dataset</th>
                     <th>Famille</th>
                     <th>Genre</th>
-                    <th>Espèce</th>
+                    <th>Espéce</th>
                 </tr>
             </thead>
 
             <tbody id="resultsBody">
                 <tr>
-                    <td colspan="7" class="text-center text-muted">
+                    <td colspan="8" class="text-center text-muted">
                         Aucun résultat à afficher.
                     </td>
                 </tr>
@@ -102,3 +103,4 @@
 <script src="search.js"></script>
 </body>
 </html>
+
