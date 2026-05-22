@@ -2,6 +2,7 @@ import os
 from typing import Any, Optional
 
 import requests
+from urllib.parse import quote
 
 
 # Service IUCN : récupère le statut de conservation (Red List) d'une espèce.
@@ -85,7 +86,7 @@ def get_iucn_status(species_name: str) -> str:
     - "Non renseigné" si le nom est vide
     - "Non vérifié" si le token IUCN_TOKEN n'est pas défini
     - "NE" si l'espèce n'est pas évaluée / non trouvée
-    - "Erreur IUCN" uniquement en cas d'erreur technique
+    - "NE" si erreur technique (réseau/API)
     """
     name = (species_name or "").strip()
     if not name:
@@ -104,22 +105,27 @@ def get_iucn_status(species_name: str) -> str:
     # Important : on ignore les variables proxy du système/environnement.
     session.trust_env = False
 
-    taxa_url = f"{IUCN_API_BASE_URL}/taxa/scientific_name/{requests.utils.quote(name)}"
+    taxa_url = f"{IUCN_API_BASE_URL}/taxa/scientific_name/{quote(name)}"
     fallback_endpoints = [
-        f"{IUCN_API_BASE_URL}/species/{requests.utils.quote(name)}",
-        f"{IUCN_API_BASE_URL}/species/name/{requests.utils.quote(name)}",
+        f"{IUCN_API_BASE_URL}/species/{quote(name)}",
+        f"{IUCN_API_BASE_URL}/species/name/{quote(name)}",
     ]
 
     def get_json(url: str) -> Optional[Any]:
-        resp = session.get(url, headers=headers, timeout=10)
-        if resp.status_code in (401, 403):
-            resp = session.get(url, params={"token": token}, timeout=10)
+        try:
+            resp = session.get(url, headers=headers, timeout=20)
+            if resp.status_code in (401, 403):
+                resp = session.get(url, params={"token": token}, timeout=20)
 
-        if resp.status_code == 404:
+            if resp.status_code == 404:
+                return None
+            if not resp.ok:
+                return None
+            return resp.json()
+        except (requests.RequestException, ValueError):
+            # Erreur réseau / parsing JSON -> on n'échoue pas l'export,
+            # on considère le statut comme non récupérable.
             return None
-        if not resp.ok:
-            return None
-        return resp.json()
 
     try:
         payload = get_json(taxa_url)
@@ -142,7 +148,7 @@ def get_iucn_status(species_name: str) -> str:
                     break
 
             if assessment_id:
-                assessment_url = f"{IUCN_API_BASE_URL}/assessment/{requests.utils.quote(assessment_id)}"
+                assessment_url = f"{IUCN_API_BASE_URL}/assessment/{quote(assessment_id)}"
                 assessment_payload = get_json(assessment_url)
                 status = _extract_status(assessment_payload)
                 return status or "NE"
@@ -154,8 +160,7 @@ def get_iucn_status(species_name: str) -> str:
                 return status
 
         return "NE"
-    except requests.RequestException:
-        return "Erreur IUCN"
-    except ValueError:
-        return "Erreur IUCN"
-
+    except Exception:
+        # Défaut robuste : éviter de remplir le CSV avec un message technique.
+        # Si l'appel IUCN échoue, on retourne un code standard.
+        return "NE"
