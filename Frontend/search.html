@@ -20,6 +20,16 @@
         <div class="row g-3">
 
             <div class="col-md-3">
+                <label for="sourceSelect" class="form-label">Source</label>
+                <select id="sourceSelect" class="form-select">
+                    <option value="gbif" selected>GBIF</option>
+                    <option value="silene_expert">Silene Expert</option>
+                    <option value="both">GBIF + Silene Expert</option>
+                </select>
+                <div class="form-text">Les filtres s'appliquent à GBIF (mapping Silene ensuite).</div>
+            </div>
+
+            <div class="col-md-3">
                 <label for="family" class="form-label">Famille</label>
                 <input
                     type="text"
@@ -83,6 +93,7 @@
         <table class="table table-bordered table-striped bg-white">
             <thead class="table-dark">
                 <tr>
+                    <th>Source</th>
                     <th>Country</th>
                     <th>Coordinates</th>
                     <th>Date</th>
@@ -97,7 +108,7 @@
 
             <tbody id="resultsBody">
                 <tr>
-                    <td colspan="9" class="text-center text-muted">
+                    <td colspan="10" class="text-center text-muted">
                         Aucun resultat a afficher.
                     </td>
                 </tr>

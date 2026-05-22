@@ -1,0 +1,64 @@
+import csv
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+from Backend.app.services.combined_service import search_gbif_and_silene_expert
+
+
+class TestCombinedExport(unittest.TestCase):
+    def test_exports_single_csv_and_merges_rows(self):
+        gbif_rows = [
+            {
+                "source_bdd": "GBIF",
+                "country": "France",
+                "coordinates": "43.0, 5.0",
+                "eventDate": "2024-01-01",
+                "basisOfRecord": "HUMAN_OBSERVATION",
+                "datasetName": "GBIF dataset",
+                "family": "Felidae",
+                "genus": "Panthera",
+                "species": "Panthera leo",
+                "redListCategory": "VU",
+            }
+        ]
+        silene_rows = [
+            {
+                "source_bdd": "Silene Expert",
+                "country": "France",
+                "coordinates": "43.1, 5.1",
+                "eventDate": "2024-02-02",
+                "basisOfRecord": "observation",
+                "datasetName": "Silene Expert",
+                "family": "Felidae",
+                "genus": "Panthera",
+                "species": "Panthera pardus",
+                "iucn_status": "EN",
+            }
+        ]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "combined.csv"
+
+            with patch("Backend.app.services.combined_service.search_gbif", return_value=gbif_rows), patch(
+                "Backend.app.services.combined_service.search_silene_expert_mapped", return_value=silene_rows
+            ):
+                combined = search_gbif_and_silene_expert(export_file=out, export_csv=True)
+
+            self.assertEqual(len(combined), 2)
+            self.assertTrue(out.exists())
+
+            with out.open("r", encoding="utf-8-sig", newline="") as f:
+                reader = csv.DictReader(f)
+                self.assertIn("source_bdd", reader.fieldnames)
+                self.assertIn("family", reader.fieldnames)
+                self.assertIn("status", reader.fieldnames)
+                self.assertIn("iucn_status", reader.fieldnames)
+                self.assertIn("redListCategory", reader.fieldnames)
+                rows = list(reader)
+                self.assertEqual(len(rows), 2)
+
+
+if __name__ == "__main__":
+    unittest.main()

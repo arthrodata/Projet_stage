@@ -97,7 +97,9 @@ def search_gbif(
     family=None,
     genus=None,
     species=None,
-    country=None
+    country=None,
+    export_csv: bool = True,
+    export_file: Path | None = None,
 ):
 
     url = "https://api.gbif.org/v1/occurrence/search"
@@ -138,19 +140,26 @@ def search_gbif(
 
     df = pd.DataFrame(results)
 
+    effective_export_file = export_file or EXPORT_FILE
+
     if df.empty:
-        EXPORT_FILE.parent.mkdir(parents=True, exist_ok=True)
-        pd.DataFrame(columns=[
-            "country",
-            "coordinates",
-            "eventDate",
-            "basisOfRecord",
-            "datasetName",
-            "family",
-            "genus",
-            "species",
-            "redListCategory"
-        ]).to_csv(EXPORT_FILE, index=False, encoding="utf-8-sig")
+        if export_csv:
+            effective_export_file.parent.mkdir(parents=True, exist_ok=True)
+            pd.DataFrame(
+                columns=[
+                    "source_bdd",
+                    "country",
+                    "coordinates",
+                    "eventDate",
+                    "basisOfRecord",
+                    "datasetName",
+                    "family",
+                    "genus",
+                    "species",
+                    "status",
+                    "redListCategory",
+                ]
+            ).to_csv(effective_export_file, index=False, encoding="utf-8-sig")
         return []
 
     df["genus"] = df["genus"].fillna("")
@@ -212,8 +221,14 @@ def search_gbif(
         return None
 
     df["redListCategory"] = df.apply(find_iucn_status, axis=1)
+    # Colonne standardisée (exports) pour l'IUCN Red List
+    df["status"] = df["redListCategory"]
+
+    # Identifier la base de données source
+    df["source_bdd"] = "GBIF"
 
     columns = [
+        "source_bdd",
         "country",
         "coordinates",
         "eventDate",
@@ -222,12 +237,14 @@ def search_gbif(
         "family",
         "genus",
         "species",
+        "status",
         "redListCategory"
     ]
     df = df.reindex(columns=columns)
     df = df.fillna("Non renseigné")
 
-    EXPORT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(EXPORT_FILE, index=False, encoding="utf-8-sig")
+    if export_csv:
+        effective_export_file.parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(effective_export_file, index=False, encoding="utf-8-sig")
 
     return df.to_dict(orient="records")
