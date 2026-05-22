@@ -1,13 +1,45 @@
+from pathlib import Path
+
 import pandas as pd
 import requests
-import os
-from pathlib import Path
+
+from Backend.app.services.iucn_service import IUCN_EMPTY_STATUS, get_iucn_enrichment
+
 
 EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "resultats.csv"
 TARGET_BASIS_OF_RECORD = "HUMAN_OBSERVATION"
-IUCN_FAMILY_URL = "https://api.iucnredlist.org/api/v4/taxa/family/{family}"
 GBIF_SPECIES_MATCH_URL = "https://api.gbif.org/v1/species/match"
 GBIF_COUNTRIES_URL = "https://api.gbif.org/v1/enumeration/country"
+EXPORT_COLUMNS = [
+    "source_bdd",
+    "country",
+    "coordinates",
+    "eventDate",
+    "basisOfRecord",
+    "datasetName",
+    "family",
+    "genus",
+    "species",
+    "status",
+    "iucn_status",
+    "iucn_lookup_status",
+    "iucn_assessment_id",
+    "iucn_year",
+    "iucn_scope",
+    "redListCategory",
+]
+CSV_EXPORT_COLUMNS = [
+    "source_bdd",
+    "country",
+    "coordinates",
+    "eventDate",
+    "basisOfRecord",
+    "datasetName",
+    "family",
+    "genus",
+    "species",
+    "status",
+]
 
 
 def get_country_code(country):
@@ -18,24 +50,21 @@ def get_country_code(country):
     if len(country) == 2:
         return country.upper()
 
-    country_lower = country.lower()
+    country_lower = country.casefold()
     aliases = {
         "algerie": "DZ",
-        "algérie": "DZ",
+        "algerie": "DZ",
         "usa": "US",
         "u.s.a": "US",
         "etats-unis": "US",
-        "états-unis": "US",
         "royaume-uni": "GB",
         "uk": "GB",
     }
-
     if country_lower in aliases:
         return aliases[country_lower]
 
     response = requests.get(GBIF_COUNTRIES_URL, timeout=20)
     response.raise_for_status()
-
     for item in response.json():
         names = [
             item.get("title"),
@@ -43,8 +72,7 @@ def get_country_code(country):
             item.get("iso3"),
             item.get("enumName", "").replace("_", " "),
         ]
-
-        if any(name and name.lower() == country_lower for name in names):
+        if any(name and name.casefold() == country_lower for name in names):
             return item.get("iso2")
 
     return None
@@ -65,32 +93,46 @@ def get_gbif_family_key(family):
     return data.get("usageKey") or data.get("familyKey")
 
 
-def get_iucn_statuses_by_species(family):
-    token = os.environ.get("IUCN_TOKEN")
-    if not token:
-        return {}
+def _format_coordinates(row):
+    latitude = row.get("decimalLatitude")
+    longitude = row.get("decimalLongitude")
+    if pd.isna(latitude) or pd.isna(longitude):
+        return None
 
-    response = requests.get(
-        IUCN_FAMILY_URL.format(family=family),
-        headers={"Authorization": f"Bearer {token}"},
-        timeout=20,
+    return f"{latitude}, {longitude}"
+
+
+def _add_iucn_columns(df):
+    enrichments = {
+        species: get_iucn_enrichment(species)
+        for species in df["species"].fillna("").astype(str).unique()
+    }
+
+    def value(species, key):
+        return enrichments.get(str(species), {}).get(key)
+
+    for column in (
+        "iucn_status",
+        "iucn_lookup_status",
+        "iucn_assessment_id",
+        "iucn_year",
+        "iucn_scope",
+    ):
+        df[column] = df["species"].map(lambda species, key=column: value(species, key))
+
+    df["iucn_status"] = df["iucn_status"].fillna(IUCN_EMPTY_STATUS)
+    df["status"] = df["iucn_status"]
+    df["redListCategory"] = df["iucn_status"]
+    return df
+
+
+def _empty_export(export_file):
+    export_file.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(columns=CSV_EXPORT_COLUMNS).to_csv(
+        export_file,
+        index=False,
+        encoding="utf-8-sig",
     )
-    response.raise_for_status()
-
-    assessments = response.json().get("assessments", [])
-    statuses = {}
-
-    for assessment in assessments:
-        if not assessment.get("latest"):
-            continue
-
-        scientific_name = assessment.get("taxon_scientific_name")
-        category = assessment.get("red_list_category_code")
-
-        if scientific_name and category:
-            statuses[scientific_name.lower()] = category
-
-    return statuses
 
 
 def search_gbif(
@@ -101,13 +143,7 @@ def search_gbif(
     export_csv: bool = True,
     export_file: Path | None = None,
 ):
-
-    url = "https://api.gbif.org/v1/occurrence/search"
-
-    params = {
-        "basisOfRecord": TARGET_BASIS_OF_RECORD,
-        "limit": 100
-    }
+    params = {"basisOfRecord": TARGET_BASIS_OF_RECORD, "limit": 100}
     q_parts = []
     country_code = None
 
@@ -120,7 +156,6 @@ def search_gbif(
 
     if genus:
         q_parts.append(genus)
-
     if species:
         q_parts.append(species)
 
@@ -132,119 +167,51 @@ def search_gbif(
     if q_parts:
         params["q"] = " ".join(q_parts)
 
-    response = requests.get(url, params=params)
+    response = requests.get(
+        "https://api.gbif.org/v1/occurrence/search",
+        params=params,
+        timeout=30,
+    )
     response.raise_for_status()
-
-    data = response.json()
-    results = data.get("results", [])
-
-    df = pd.DataFrame(results)
-
+    df = pd.DataFrame(response.json().get("results", []))
     effective_export_file = export_file or EXPORT_FILE
 
     if df.empty:
         if export_csv:
-            effective_export_file.parent.mkdir(parents=True, exist_ok=True)
-            pd.DataFrame(
-                columns=[
-                    "source_bdd",
-                    "country",
-                    "coordinates",
-                    "eventDate",
-                    "basisOfRecord",
-                    "datasetName",
-                    "family",
-                    "genus",
-                    "species",
-                    "status",
-                    "redListCategory",
-                ]
-            ).to_csv(effective_export_file, index=False, encoding="utf-8-sig")
+            _empty_export(effective_export_file)
         return []
 
-    df["genus"] = df["genus"].fillna("")
-    df["species"] = df["species"].fillna("")
-    df["scientificName"] = df["scientificName"].fillna("")
-    df["country"] = df["country"].fillna("")
-    df["family"] = df["family"].fillna("")
-    df["basisOfRecord"] = df["basisOfRecord"].fillna("")
+    for column in ("genus", "species", "scientificName", "country", "family", "basisOfRecord"):
+        df[column] = df[column].fillna("")
+
     df = df[df["basisOfRecord"] == TARGET_BASIS_OF_RECORD]
-
-    def format_coordinates(row):
-        latitude = row.get("decimalLatitude")
-        longitude = row.get("decimalLongitude")
-
-        if pd.isna(latitude) or pd.isna(longitude):
-            return None
-
-        return f"{latitude}, {longitude}"
-
-    df["coordinates"] = df.apply(format_coordinates, axis=1)
+    df["coordinates"] = df.apply(_format_coordinates, axis=1)
 
     if genus:
-        df = df[df["genus"].str.contains(genus, case=False, na=False) |
-                df["scientificName"].str.contains(genus, case=False, na=False)]
-
+        df = df[
+            df["genus"].str.contains(genus, case=False, na=False)
+            | df["scientificName"].str.contains(genus, case=False, na=False)
+        ]
     if species:
-        df = df[df["species"].str.contains(species, case=False, na=False) |
-                df["scientificName"].str.contains(species, case=False, na=False)]
-
+        df = df[
+            df["species"].str.contains(species, case=False, na=False)
+            | df["scientificName"].str.contains(species, case=False, na=False)
+        ]
     if country and not country_code:
         df = df[df["country"].str.contains(country, case=False, na=False)]
-
     if family:
         df = df[df["family"].str.contains(family, case=False, na=False)]
 
-    iucn_statuses = {}
-    should_lookup_iucn = bool(family or genus or species)
-
-    if should_lookup_iucn:
-        for family_name in df["family"].dropna().unique():
-            if not family_name:
-                continue
-
-            try:
-                iucn_statuses.update(get_iucn_statuses_by_species(family_name))
-            except requests.RequestException:
-                continue
-
-    def find_iucn_status(row):
-        names = [
-            row.get("species"),
-            row.get("scientificName"),
-        ]
-
-        for name in names:
-            if name and str(name).lower() in iucn_statuses:
-                return iucn_statuses[str(name).lower()]
-
-        return None
-
-    df["redListCategory"] = df.apply(find_iucn_status, axis=1)
-    # Colonne standardisée (exports) pour l'IUCN Red List
-    df["status"] = df["redListCategory"]
-
-    # Identifier la base de données source
+    df = _add_iucn_columns(df)
     df["source_bdd"] = "GBIF"
-
-    columns = [
-        "source_bdd",
-        "country",
-        "coordinates",
-        "eventDate",
-        "basisOfRecord",
-        "datasetName",
-        "family",
-        "genus",
-        "species",
-        "status",
-        "redListCategory"
-    ]
-    df = df.reindex(columns=columns)
-    df = df.fillna("Non renseigné")
+    df = df.reindex(columns=EXPORT_COLUMNS).fillna("Non renseigne")
 
     if export_csv:
         effective_export_file.parent.mkdir(parents=True, exist_ok=True)
-        df.to_csv(effective_export_file, index=False, encoding="utf-8-sig")
+        df.reindex(columns=CSV_EXPORT_COLUMNS).to_csv(
+            effective_export_file,
+            index=False,
+            encoding="utf-8-sig",
+        )
 
     return df.to_dict(orient="records")

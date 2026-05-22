@@ -10,8 +10,8 @@ import os
 
 def _load_env_file() -> None:
     """
-    Charge les variables depuis un fichier .env à la racine du projet.
-    On évite d'ajouter une dépendance (python-dotenv) pour garder le projet simple.
+    Charge les variables depuis un fichier .env a la racine du projet.
+    On evite d'ajouter une dependance (python-dotenv) pour garder le projet simple.
     """
     env_path = Path(__file__).resolve().parents[2] / ".env"
     if not env_path.exists():

@@ -11,6 +11,18 @@ from Backend.app.services.silene_expert_service import search_silene_expert_mapp
 
 
 COMBINED_EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "resultats_gbif_silene.csv"
+CSV_EXPORT_COLUMNS = [
+    "source_bdd",
+    "country",
+    "coordinates",
+    "eventDate",
+    "basisOfRecord",
+    "datasetName",
+    "family",
+    "genus",
+    "species",
+    "status",
+]
 
 
 def _normalize_rows(rows: list[dict[str, Any]]) -> pd.DataFrame:
@@ -29,6 +41,10 @@ def _normalize_rows(rows: list[dict[str, Any]]) -> pd.DataFrame:
                 "species",
                 "status",
                 "iucn_status",
+                "iucn_lookup_status",
+                "iucn_assessment_id",
+                "iucn_year",
+                "iucn_scope",
                 "redListCategory",
             ]
         )
@@ -43,6 +59,14 @@ def _normalize_rows(rows: list[dict[str, Any]]) -> pd.DataFrame:
 
     if "iucn_status" not in df.columns:
         df["iucn_status"] = ""
+    if "iucn_lookup_status" not in df.columns:
+        df["iucn_lookup_status"] = ""
+    if "iucn_assessment_id" not in df.columns:
+        df["iucn_assessment_id"] = ""
+    if "iucn_year" not in df.columns:
+        df["iucn_year"] = ""
+    if "iucn_scope" not in df.columns:
+        df["iucn_scope"] = ""
     if "redListCategory" not in df.columns:
         df["redListCategory"] = ""
 
@@ -76,6 +100,10 @@ def _normalize_rows(rows: list[dict[str, Any]]) -> pd.DataFrame:
         "species",
         "status",
         "iucn_status",
+        "iucn_lookup_status",
+        "iucn_assessment_id",
+        "iucn_year",
+        "iucn_scope",
         "redListCategory",
     ]
     return df.reindex(columns=ordered_cols)
@@ -93,7 +121,7 @@ def search_gbif_and_silene_expert(
     export_file: Path | None = None,
 ) -> list[dict[str, Any]]:
     """
-    Recherche GBIF + Silene Expert en parallèle et exporte UN SEUL CSV.
+    Recherche GBIF + Silene Expert en parallele et exporte UN SEUL CSV.
     """
     effective_export_file = export_file or COMBINED_EXPORT_FILE
 
@@ -126,6 +154,10 @@ def search_gbif_and_silene_expert(
     if export_csv:
         df = pd.concat([_normalize_rows(gbif_rows), _normalize_rows(silene_rows)], ignore_index=True)
         effective_export_file.parent.mkdir(parents=True, exist_ok=True)
-        df.to_csv(effective_export_file, index=False, encoding="utf-8-sig")
+        df.reindex(columns=CSV_EXPORT_COLUMNS).to_csv(
+            effective_export_file,
+            index=False,
+            encoding="utf-8-sig",
+        )
 
     return combined

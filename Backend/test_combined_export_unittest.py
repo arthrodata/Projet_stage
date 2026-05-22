@@ -21,6 +21,7 @@ class TestCombinedExport(unittest.TestCase):
                 "genus": "Panthera",
                 "species": "Panthera leo",
                 "redListCategory": "VU",
+                "iucn_lookup_status": "ok",
             }
         ]
         silene_rows = [
@@ -35,6 +36,7 @@ class TestCombinedExport(unittest.TestCase):
                 "genus": "Panthera",
                 "species": "Panthera pardus",
                 "iucn_status": "EN",
+                "iucn_lookup_status": "ok",
             }
         ]
 
@@ -54,8 +56,9 @@ class TestCombinedExport(unittest.TestCase):
                 self.assertIn("source_bdd", reader.fieldnames)
                 self.assertIn("family", reader.fieldnames)
                 self.assertIn("status", reader.fieldnames)
-                self.assertIn("iucn_status", reader.fieldnames)
-                self.assertIn("redListCategory", reader.fieldnames)
+                self.assertNotIn("iucn_status", reader.fieldnames)
+                self.assertNotIn("iucn_lookup_status", reader.fieldnames)
+                self.assertNotIn("redListCategory", reader.fieldnames)
                 rows = list(reader)
                 self.assertEqual(len(rows), 2)
 

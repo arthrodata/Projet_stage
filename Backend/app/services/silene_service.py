@@ -6,7 +6,7 @@ import requests
 
 
 # Service Silene Nature (GeoNature-atlas)
-# On appelle l'API publique de https://nature.silene.eu/ pour récupérer des données de synthèse.
+# On appelle l'API publique de https://nature.silene.eu/ pour recuperer des donnees de synthese.
 
 SILENE_BASE_URL = "https://nature.silene.eu"
 
@@ -82,7 +82,7 @@ def search_commune(search: str, limit: int = 20) -> list[dict[str, Any]]:
 
 def get_observations_maille(cd_ref: int) -> dict[str, Any]:
     """
-    Récupère la répartition par mailles (GeoJSON) pour une espèce (cd_ref).
+    Recupere la repartition par mailles (GeoJSON) pour une espece (cd_ref).
     """
     try:
         r = _session().get(f"{SILENE_BASE_URL}/api/observationsMaille/{int(cd_ref)}", timeout=30)

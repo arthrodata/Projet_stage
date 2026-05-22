@@ -25,7 +25,7 @@ function setLoading(isLoading) {
 }
 
 function getQueryParams() {
-    const source = (sourceSelect?.value || "gbif").trim();
+    const source = ((sourceSelect && sourceSelect.value) || "gbif").trim();
     const family = familyInput.value.trim();
     const species = speciesInput.value.trim();
     const genus = genusInput.value.trim();
@@ -59,7 +59,7 @@ function afficherResultats(data) {
     countText.textContent = `${data.length} resultat(s) recupere(s). Affichage des 10 premiers.`;
 
     function getIucnValue(item) {
-        return item?.status || item?.iucn_status || item?.redListCategory || "Non renseigne";
+        return item.status || item.iucn_status || item.redListCategory || "Non renseigne";
     }
 
     firstTen.forEach(function (item) {
@@ -84,7 +84,7 @@ function applyFamilyFilterClientSide(data, family) {
     const fam = (family || "").trim().toLowerCase();
     if (!fam) return data;
     if (!Array.isArray(data)) return [];
-    return data.filter((item) => ((item?.family || "").toString().toLowerCase().includes(fam)));
+    return data.filter((item) => ((item.family || "").toString().toLowerCase().includes(fam)));
 }
 
 function saveLastSearch(payload) {
@@ -141,14 +141,14 @@ async function runSearch() {
             if (!response.ok) throw new Error("Erreur API GBIF");
             data = await response.json();
         } else if (source === "silene_expert") {
-            // Mapping : on appelle une route "search" côté backend qui applique family/genus/species/country.
+            // Mapping : on appelle une route "search" cote backend qui applique family/genus/species/country.
             const url = `${API_URL}/silene-expert/search?${params.toString()}`;
             console.log("URL appelee :", url);
             const response = await fetch(url);
             if (!response.ok) throw new Error("Erreur API Silene Expert");
             data = await response.json();
         } else if (source === "both") {
-            // Endpoint backend combiné : 1 appel + 1 seul CSV généré côté backend.
+            // Endpoint backend combine : 1 appel + 1 seul CSV genere cote backend.
             const url = `${API_URL}/combined/search?${params.toString()}`;
             console.log("URL appelee :", url);
             const response = await fetch(url);
@@ -156,8 +156,8 @@ async function runSearch() {
             data = await response.json();
         }
 
-        // Sécurité : appliquer le filtre famille côté client (certaines sources peuvent renvoyer
-        // des familles non normalisées ou vides).
+        // Securite : appliquer le filtre famille cote client (certaines sources peuvent renvoyer
+        // des familles non normalisees ou vides).
         data = applyFamilyFilterClientSide(data, family);
 
         afficherResultats(data);
@@ -207,7 +207,7 @@ resetBtn.addEventListener("click", function () {
 });
 
 exportBtn.addEventListener("click", function () {
-    const source = (sourceSelect?.value || "gbif").trim();
+    const source = ((sourceSelect && sourceSelect.value) || "gbif").trim();
     if (source === "gbif") {
         alert("CSV GBIF genere cote backend : Backend/exports/resultats.csv");
         return;

@@ -1,166 +1,126 @@
+from __future__ import annotations
+
 import os
-from typing import Any, Optional
+from functools import lru_cache
+from typing import Any
 
 import requests
-from urllib.parse import quote
 
 
-# Service IUCN : récupère le statut de conservation (Red List) d'une espèce.
-# Le token API ne doit jamais être écrit dans le code : on le lit depuis une variable
-# d'environnement (IUCN_TOKEN).
-
-IUCN_API_BASE_URL = "https://apiv4.iucnredlist.org/api/v4"
-
-# Codes attendus (IUCN Red List categories)
-_ALLOWED_CODES = {"LC", "NT", "VU", "EN", "CR", "EW", "EX", "DD", "NE"}
+IUCN_API_BASE_URL = "https://api.iucnredlist.org/api/v4"
+IUCN_GLOBAL_SCOPE_CODE = "1"
+IUCN_EMPTY_STATUS = "Non renseigne"
+IUCN_ALLOWED_CODES = {"LC", "NT", "VU", "EN", "CR", "EW", "EX", "DD", "NE"}
 
 
-def _normalize_status(value: Any) -> Optional[str]:
-    if value is None:
+def split_species_name(scientific_name: str | None) -> tuple[str, str] | None:
+    """Return the genus/species pair required by the IUCN scientific-name endpoint."""
+    tokens = str(scientific_name or "").strip().split()
+    if len(tokens) < 2:
         return None
 
-    text = str(value).strip()
-    if not text:
+    genus, species = tokens[:2]
+    if not genus or not species or not species[:1].islower():
         return None
 
-    upper = text.upper()
-    if upper in _ALLOWED_CODES:
-        return upper
+    return genus, species
 
-    if upper in {"NOT EVALUATED", "NOT_EVALUATED"}:
-        return "NE"
-    if upper in {"DATA DEFICIENT", "DATA_DEFICIENT"}:
-        return "DD"
 
-    mapping = {
-        "LEAST CONCERN": "LC",
-        "NEAR THREATENED": "NT",
-        "VULNERABLE": "VU",
-        "ENDANGERED": "EN",
-        "CRITICALLY ENDANGERED": "CR",
-        "EXTINCT IN THE WILD": "EW",
-        "EXTINCT": "EX",
+def _new_result(lookup_status: str, **values: Any) -> dict[str, Any]:
+    result = {
+        "iucn_status": None,
+        "iucn_lookup_status": lookup_status,
+        "iucn_assessment_id": None,
+        "iucn_year": None,
+        "iucn_scope": None,
     }
-    return mapping.get(upper)
+    result.update(values)
+    return result
 
 
-def _extract_status(payload: Any) -> Optional[str]:
-    """
-    Parsing robuste : la structure peut varier, donc on teste plusieurs clés.
-    """
-    if payload is None:
-        return None
+def _is_global_scope(assessment: dict[str, Any]) -> bool:
+    for scope in assessment.get("scopes") or []:
+        if str(scope.get("code", "")).strip() == IUCN_GLOBAL_SCOPE_CODE:
+            return True
 
-    if isinstance(payload, list):
-        for item in payload:
-            status = _extract_status(item)
-            if status:
-                return status
-        return None
+        description = scope.get("description") or {}
+        if str(description.get("en", "")).strip().casefold() == "global":
+            return True
 
-    if not isinstance(payload, dict):
-        return _normalize_status(payload)
-
-    for key in ("red_list_category", "category", "code"):
-        status = _normalize_status(payload.get(key))
-        if status:
-            return status
-
-    for container_key in ("assessments", "result"):
-        if container_key in payload:
-            status = _extract_status(payload.get(container_key))
-            if status:
-                return status
-
-    for _, value in payload.items():
-        status = _extract_status(value)
-        if status:
-            return status
-
-    return None
+    return False
 
 
-def get_iucn_status(species_name: str) -> str:
-    """
-    Retourne le statut IUCN (code) pour un nom scientifique d'espèce.
-    - "Non renseigné" si le nom est vide
-    - "Non vérifié" si le token IUCN_TOKEN n'est pas défini
-    - "NE" si l'espèce n'est pas évaluée / non trouvée
-    - "NE" si erreur technique (réseau/API)
-    """
-    name = (species_name or "").strip()
-    if not name:
-        return "Non renseigné"
+def _status_code(assessment: dict[str, Any]) -> str | None:
+    status = str(assessment.get("red_list_category_code") or "").strip().upper()
+    return status if status in IUCN_ALLOWED_CODES else None
 
-    token = os.getenv("IUCN_TOKEN")
-    if not token:
-        return "Non vérifié"
 
-    headers = {
-        "Accept": "application/json",
-        "Authorization": f"Bearer {token}",
-    }
-
-    session = requests.Session()
-    # Important : on ignore les variables proxy du système/environnement.
-    session.trust_env = False
-
-    taxa_url = f"{IUCN_API_BASE_URL}/taxa/scientific_name/{quote(name)}"
-    fallback_endpoints = [
-        f"{IUCN_API_BASE_URL}/species/{quote(name)}",
-        f"{IUCN_API_BASE_URL}/species/name/{quote(name)}",
+def _select_global_latest_assessment(payload: dict[str, Any]) -> dict[str, Any] | None:
+    assessments = payload.get("assessments") or []
+    candidates = [
+        assessment
+        for assessment in assessments
+        if isinstance(assessment, dict)
+        and assessment.get("latest") is True
+        and _is_global_scope(assessment)
+        and _status_code(assessment)
     ]
 
-    def get_json(url: str) -> Optional[Any]:
-        try:
-            resp = session.get(url, headers=headers, timeout=20)
-            if resp.status_code in (401, 403):
-                resp = session.get(url, params={"token": token}, timeout=20)
+    if not candidates:
+        return None
 
-            if resp.status_code == 404:
-                return None
-            if not resp.ok:
-                return None
-            return resp.json()
-        except (requests.RequestException, ValueError):
-            # Erreur réseau / parsing JSON -> on n'échoue pas l'export,
-            # on considère le statut comme non récupérable.
-            return None
+    return max(candidates, key=lambda item: str(item.get("year_published") or ""))
+
+
+@lru_cache(maxsize=2048)
+def _get_iucn_enrichment_cached(token: str, genus: str, species: str) -> dict[str, Any]:
+    session = requests.Session()
+    session.trust_env = False
 
     try:
-        payload = get_json(taxa_url)
-        if payload is not None:
-            status = _extract_status(payload)
-            if status:
-                return status
+        response = session.get(
+            f"{IUCN_API_BASE_URL}/taxa/scientific_name",
+            params={"genus_name": genus, "species_name": species},
+            headers={"Accept": "application/json", "Authorization": f"Bearer {token}"},
+            timeout=20,
+        )
+        if response.status_code == 404:
+            return _new_result("not_found")
 
-            assessment_id: Optional[str] = None
-            candidates = payload if isinstance(payload, list) else [payload]
-            for item in candidates:
-                if not isinstance(item, dict):
-                    continue
-                for key in ("assessment_id", "assessmentId", "id"):
-                    value = item.get(key)
-                    if value is not None and str(value).strip():
-                        assessment_id = str(value).strip()
-                        break
-                if assessment_id:
-                    break
+        response.raise_for_status()
+        payload = response.json()
+    except (requests.RequestException, ValueError):
+        return _new_result("api_error")
 
-            if assessment_id:
-                assessment_url = f"{IUCN_API_BASE_URL}/assessment/{quote(assessment_id)}"
-                assessment_payload = get_json(assessment_url)
-                status = _extract_status(assessment_payload)
-                return status or "NE"
+    if not isinstance(payload, dict):
+        return _new_result("api_error")
 
-        for url in fallback_endpoints:
-            payload = get_json(url)
-            status = _extract_status(payload)
-            if status:
-                return status
+    assessment = _select_global_latest_assessment(payload)
+    if not assessment:
+        return _new_result("no_global_assessment")
 
-        return "NE"
-    except Exception:
-        # Défaut robuste : éviter de remplir le CSV avec un message technique.
-        # Si l'appel IUCN échoue, on retourne un code standard.
-        return "NE"
+    return _new_result(
+        "ok",
+        iucn_status=_status_code(assessment),
+        iucn_assessment_id=assessment.get("assessment_id"),
+        iucn_year=assessment.get("year_published"),
+        iucn_scope="Global",
+    )
+
+
+def get_iucn_enrichment(scientific_name: str | None) -> dict[str, Any]:
+    taxon = split_species_name(scientific_name)
+    if not taxon:
+        return _new_result("invalid_species_name")
+
+    token = os.getenv("IUCN_TOKEN", "").strip()
+    if not token:
+        return _new_result("missing_token")
+
+    genus, species = taxon
+    return dict(_get_iucn_enrichment_cached(token, genus, species))
+
+
+def get_iucn_status(scientific_name: str | None) -> str:
+    """Compatibility helper used by older callers that only need the status column."""
+    return get_iucn_enrichment(scientific_name).get("iucn_status") or IUCN_EMPTY_STATUS

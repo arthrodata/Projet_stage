@@ -7,7 +7,7 @@ from typing import Any, Optional
 import pandas as pd
 import requests
 
-from Backend.app.services.iucn_service import get_iucn_status
+from Backend.app.services.iucn_service import IUCN_EMPTY_STATUS, get_iucn_enrichment
 
 
 # Service Silene Expert
@@ -17,6 +17,18 @@ from Backend.app.services.iucn_service import get_iucn_status
 SILENE_EXPERT_BASE_URL = "https://expert.silene.eu"
 TAXHUB_API_BASE_URL = "https://taxhub.silene.eu/api"
 EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "resultats_silene_expert.csv"
+CSV_EXPORT_COLUMNS = [
+    "source_bdd",
+    "country",
+    "coordinates",
+    "eventDate",
+    "basisOfRecord",
+    "datasetName",
+    "family",
+    "genus",
+    "species",
+    "status",
+]
 
 
 def _session() -> requests.Session:
@@ -27,13 +39,13 @@ def _session() -> requests.Session:
 
 
 def _get_token() -> Optional[str]:
-    # 2 noms possibles, pour être souple
+    # 2 noms possibles, pour etre souple
     return os.getenv("SILENE_EXPERT_TOKEN") or os.getenv("SILENE_TOKEN")
 
 
 def _taxhub_lookup_cd_ref(name: str) -> Optional[int]:
     """
-    Convertit un nom (famille/genre/espèce) en cd_ref via TaxHub.
+    Convertit un nom (famille/genre/espece) en cd_ref via TaxHub.
     On l'utilise pour filtrer Silene Expert avec `cd_ref`.
     """
     query = (name or "").strip()
@@ -73,7 +85,7 @@ def _taxhub_lookup_cd_ref(name: str) -> Optional[int]:
                 cd_ref = item.get("cd_ref")
                 return int(cd_ref) if cd_ref is not None else None
 
-        # 3) fallback : premier résultat
+        # 3) fallback : premier resultat
         first = items[0]
         if isinstance(first, dict) and first.get("cd_ref") is not None:
             return int(first.get("cd_ref"))
@@ -85,7 +97,7 @@ def _taxhub_lookup_cd_ref(name: str) -> Optional[int]:
 
 def _taxhub_get_taxon_info(cd_nom: int) -> dict[str, Any]:
     """
-    Récupère les infos taxonomiques via TaxHub (ex: famille, ordre...).
+    Recupere les infos taxonomiques via TaxHub (ex: famille, ordre...).
     """
     try:
         s = requests.Session()
@@ -102,8 +114,8 @@ def _taxhub_get_taxon_info(cd_nom: int) -> dict[str, Any]:
 
 def _taxhub_get_cd_refs_by_family(family: str, max_items: int = 50) -> list[int]:
     """
-    Récupère une liste de cd_ref (espèces) appartenant à une famille via TaxHub.
-    Sert à faire un "vrai" filtre famille pour Silene Expert.
+    Recupere une liste de cd_ref (especes) appartenant a une famille via TaxHub.
+    Sert a faire un "vrai" filtre famille pour Silene Expert.
     """
     fam = (family or "").strip()
     if not fam:
@@ -141,7 +153,7 @@ def _taxhub_get_cd_refs_by_family(family: str, max_items: int = 50) -> list[int]
 
 def _extract_records(payload: Any) -> list[dict[str, Any]]:
     """
-    La structure exacte peut varier, donc on teste plusieurs clés.
+    La structure exacte peut varier, donc on teste plusieurs cles.
     On retourne une liste de dict (enregistrements).
     """
     if payload is None:
@@ -158,7 +170,7 @@ def _extract_records(payload: Any) -> list[dict[str, Any]]:
         if isinstance(value, list):
             return [x for x in value if isinstance(x, dict)]
 
-    # Parfois c'est déjà 1 enregistrement
+    # Parfois c'est deja  1 enregistrement
     if any(isinstance(v, (str, int, float, dict, list)) for v in payload.values()):
         return [payload]
 
@@ -167,7 +179,7 @@ def _extract_records(payload: Any) -> list[dict[str, Any]]:
 
 def _iter_points(coords: Any):
     """
-    Parcours récursif des coordonnées GeoJSON pour récupérer une liste de points (lon, lat).
+    Parcours recursif des coordonnees GeoJSON pour recuperer une liste de points (lon, lat).
     """
     if coords is None:
         return
@@ -185,7 +197,7 @@ def _iter_points(coords: Any):
 
 def _coordinates_from_geometry(geometry: dict[str, Any]) -> Optional[str]:
     """
-    Convertit une géométrie GeoJSON en "lat, lon" (centroïde simple).
+    Convertit une geometrie GeoJSON en "lat, lon" (centroide simple).
     """
     if not isinstance(geometry, dict):
         return None
@@ -214,34 +226,22 @@ def search_silene_expert(
     export_file: Path | None = None,
 ) -> list[dict[str, Any]]:
     """
-    Appelle l'endpoint Silene Expert utilisé par le front web :
+    Appelle l'endpoint Silene Expert utilise par le front web :
     POST /api/synthese/for_web?with_areas=false
 
     - Si pas de token, retourne [] (et exporte un CSV vide)
-    - Ne plante pas si l'API change un peu ou si une clé manque
-    - Ajoute iucn_status (avec cache par espèce)
+    - Ne plante pas si l'API change un peu ou si une cle manque
+    - Ajoute iucn_status (avec cache par espece)
     """
     token = _get_token()
     effective_export_file = export_file or EXPORT_FILE
 
-    # Si pas de token : on ne peut pas accéder aux données Expert
+    # Si pas de token : on ne peut pas acceder aux donnees Expert
     if not token:
         if export_csv:
             effective_export_file.parent.mkdir(parents=True, exist_ok=True)
             pd.DataFrame(
-                columns=[
-                    "source_bdd",
-                    "country",
-                    "coordinates",
-                    "eventDate",
-                    "basisOfRecord",
-                    "datasetName",
-                    "family",
-                    "genus",
-                    "species",
-                    "status",
-                    "iucn_status",
-                ]
+                columns=CSV_EXPORT_COLUMNS
             ).to_csv(effective_export_file, index=False, encoding="utf-8-sig")
         return []
 
@@ -265,7 +265,7 @@ def search_silene_expert(
     rows: list[dict[str, Any]] = []
     taxon_cache: dict[int, dict[str, Any]] = {}
 
-    # 1) Cas "GeoJSON FeatureCollection" (observations groupées par géométrie)
+    # 1) Cas "GeoJSON FeatureCollection" (observations groupees par geometrie)
     if isinstance(data, dict) and isinstance(data.get("features"), list):
         for feature in data.get("features", []):
             if not isinstance(feature, dict):
@@ -304,9 +304,9 @@ def search_silene_expert(
                     dataset = _pick_first(obs, ["jdd_nom", "dataset_name", "datasetName", "dataset"])
                     event_date = _pick_first(obs, ["date_debut", "date_min", "eventDate", "date"])
 
-                    species_value = (str(scientific_name).strip() if scientific_name else "Non renseigné")
-                    genus_value = "Non renseigné"
-                    if species_value and species_value != "Non renseigné":
+                    species_value = (str(scientific_name).strip() if scientific_name else "Non renseigne")
+                    genus_value = "Non renseigne"
+                    if species_value and species_value != "Non renseigne":
                         genus_value = species_value.split(" ", 1)[0]
 
                     family_value = _pick_first(obs, ["famille", "family"])
@@ -316,11 +316,11 @@ def search_silene_expert(
                     rows.append(
                         {
                             "country": "France",
-                            "coordinates": coords or "Non renseigné",
-                            "eventDate": event_date or "Non renseigné",
-                            "basisOfRecord": _pick_first(obs, ["type_source", "url_source"]) or "Non renseigné",
+                            "coordinates": coords or "Non renseigne",
+                            "eventDate": event_date or "Non renseigne",
+                            "basisOfRecord": _pick_first(obs, ["type_source", "url_source"]) or "Non renseigne",
                             "datasetName": dataset or "Silene Expert",
-                            "family": family_value or "Non renseigné",
+                            "family": family_value or "Non renseigne",
                             "genus": genus_value,
                             "species": species_value,
                         }
@@ -351,77 +351,80 @@ def search_silene_expert(
 
             rows.append(
                 {
-                    "country": _pick_first(rec, ["country", "pays"]) or "Non renseigné",
-                    "coordinates": coordinates or "Non renseigné",
-                    "eventDate": event_date or "Non renseigné",
-                    "basisOfRecord": _pick_first(rec, ["basisOfRecord", "type_observation", "source", "type_source"]) or "Non renseigné",
+                    "country": _pick_first(rec, ["country", "pays"]) or "Non renseigne",
+                    "coordinates": coordinates or "Non renseigne",
+                    "eventDate": event_date or "Non renseigne",
+                    "basisOfRecord": _pick_first(rec, ["basisOfRecord", "type_observation", "source", "type_source"]) or "Non renseigne",
                     "datasetName": _pick_first(rec, ["datasetName", "dataset", "jeu_de_donnees", "jdd_nom", "dataset_name"]) or "Silene Expert",
-                    "family": _pick_first(rec, ["family", "famille"]) or "Non renseigné",
-                    "genus": genus or "Non renseigné",
-                    "species": (str(species).strip() if species else "Non renseigné"),
+                    "family": _pick_first(rec, ["family", "famille"]) or "Non renseigne",
+                    "genus": genus or "Non renseigne",
+                    "species": (str(species).strip() if species else "Non renseigne"),
                 }
             )
 
     df = pd.DataFrame(rows)
 
-    # Identifier la base de données source
+    # Identifier la base de donnees source
     df["source_bdd"] = "Silene Expert"
 
-    # Cache IUCN : une espèce unique = 1 appel IUCN
+    # Cache IUCN : une espece unique = 1 appel IUCN
     species_clean = df["species"].fillna("").astype(str).map(lambda s: s.strip())
     unique_species = species_clean.unique().tolist()
 
-    status_dict: dict[str, str] = {}
-    for sp in unique_species:
-        if not sp or sp == "Non renseigné":
-            status_dict[sp] = "Non renseigné"
-        else:
-            status_dict[sp] = get_iucn_status(sp)
+    enrichments = {
+        species: get_iucn_enrichment(species)
+        for species in unique_species
+        if species and species not in {"Non renseigne", "Non renseigne"}
+    }
 
-    df["iucn_status"] = species_clean.map(status_dict).fillna("NE")
-    # Colonne standardisée (exports) pour l'IUCN Red List
+    def iucn_value(species_name, key):
+        return enrichments.get(species_name, {}).get(key)
+
+    for column in (
+        "iucn_status",
+        "iucn_lookup_status",
+        "iucn_assessment_id",
+        "iucn_year",
+        "iucn_scope",
+    ):
+        df[column] = species_clean.map(lambda name, key=column: iucn_value(name, key))
+
+    df["iucn_status"] = df["iucn_status"].fillna(IUCN_EMPTY_STATUS)
+    # Colonne standardisee (exports) pour l'IUCN Red List
     df["status"] = df["iucn_status"]
 
-    df = df.fillna("Non renseigné")
+    df = df.fillna("Non renseigne")
 
-    # Mettre source_bdd en première colonne dans le CSV
+    # Mettre source_bdd en premiere colonne dans le CSV
     ordered_cols = ["source_bdd"] + [c for c in df.columns if c != "source_bdd"]
     df = df.reindex(columns=ordered_cols)
 
     if export_csv:
         effective_export_file.parent.mkdir(parents=True, exist_ok=True)
-        df.to_csv(effective_export_file, index=False, encoding="utf-8-sig")
+        df.reindex(columns=CSV_EXPORT_COLUMNS).to_csv(
+            effective_export_file,
+            index=False,
+            encoding="utf-8-sig",
+        )
 
     return df.to_dict(orient="records")
 
 
 def _export_mapped_rows(rows: list[dict[str, Any]], export_file: Path) -> None:
     """
-    Export CSV pour les résultats "mappés" (mêmes champs que GBIF).
-    On évite de réécrire toute la logique de `search_silene_expert` quand on
-    a besoin de désactiver l'export pendant des appels intermédiaires.
+    Export CSV pour les resultats "mappes" (memes champs que GBIF).
+    On evite de reecrire toute la logique de `search_silene_expert` quand on
+    a besoin de desactiver l'export pendant des appels intermediaires.
     """
     export_file.parent.mkdir(parents=True, exist_ok=True)
     df = pd.DataFrame(rows)
     if df.empty:
         pd.DataFrame(
-            columns=[
-                "source_bdd",
-                "country",
-                "coordinates",
-                "eventDate",
-                "basisOfRecord",
-                "datasetName",
-                "family",
-                "genus",
-                "species",
-                "status",
-                "iucn_status",
-            ]
+            columns=CSV_EXPORT_COLUMNS
         ).to_csv(export_file, index=False, encoding="utf-8-sig")
         return
 
-    # Mettre source_bdd en première colonne
+    # Mettre source_bdd en premiere colonne
     if "source_bdd" in df.columns:
         ordered_cols = ["source_bdd"] + [c for c in df.columns if c != "source_bdd"]
         df = df.reindex(columns=ordered_cols)
@@ -432,7 +435,7 @@ def _export_mapped_rows(rows: list[dict[str, Any]], export_file: Path) -> None:
         else:
             df["status"] = ""
 
-    df.to_csv(export_file, index=False, encoding="utf-8-sig")
+    df.reindex(columns=CSV_EXPORT_COLUMNS).to_csv(export_file, index=False, encoding="utf-8-sig")
 
 
 def search_silene_expert_mapped(
@@ -447,27 +450,30 @@ def search_silene_expert_mapped(
     export_file: Path | None = None,
 ) -> list[dict[str, Any]]:
     """
-    Version "simple" pour le front : mêmes champs que la recherche GBIF.
+    Version "simple" pour le front : memes champs que la recherche GBIF.
 
     Mapping actuel (simple, lisible) :
-    - on filtre Silene Expert avec les clés texte `family`, `genus`, `species`
-    - `country` n'est pas utilisé pour l'instant (Silene Expert est centré France)
+    - on filtre Silene Expert avec les cles texte `family`, `genus`, `species`
+    - `country` n'est pas utilise pour l'instant (Silene Expert est centre France)
     """
     payload: dict[str, Any] = {"page": int(page), "limit": int(limit)}
 
-    # Silene Expert accepte certains filtres texte (vérifié) :
+    # Silene Expert accepte certains filtres texte (verifie) :
     # - species/nom_valide : OK
-    # - family : non fiable côté API, on filtre côté backend après enrichment TaxHub
+    # - family : non fiable cote API, on filtre cote backend apres enrichment TaxHub
     # Pour genus, le plus fiable est d'utiliser cd_ref (TaxHub) pour le genre.
     if family and family.strip():
-        # On ne met pas "family" dans le payload (ça ne filtre pas réellement sur l'API),
+        # On ne met pas "family" dans le payload (ca ne filtre pas reellement sur l'API),
         # on filtrera ensuite sur la colonne "family".
         family = family.strip()
 
     if species and species.strip():
-        payload["species"] = species.strip()
-
-    if genus and genus.strip():
+        cd_ref = _taxhub_lookup_cd_ref(species.strip())
+        if cd_ref is not None:
+            payload["cd_ref"] = cd_ref
+        else:
+            payload["species"] = species.strip()
+    elif genus and genus.strip():
         cd_ref = _taxhub_lookup_cd_ref(genus.strip())
         if cd_ref is not None:
             payload["cd_ref"] = cd_ref
@@ -481,7 +487,7 @@ def search_silene_expert_mapped(
         if cd_ref is not None:
             payload["cd_ref"] = cd_ref
 
-    # Si l'utilisateur met un pays différent de France, on retourne vide (cohérence minimale).
+    # Si l'utilisateur met un pays different de France, on retourne vide (coherence minimale).
     if country and country.strip() and country.strip().lower() not in {"fr", "france"}:
         return []
 
@@ -491,8 +497,28 @@ def search_silene_expert_mapped(
         fam = family.strip().lower()
         return [r for r in items if fam in ((r.get("family") or "").strip().lower())]
 
-    # Filtre famille : on récupère des cd_ref d'espèces de cette famille via TaxHub,
-    # puis on interroge Silene Expert avec cd_ref jusqu'à obtenir assez de résultats.
+    def apply_taxon_filters(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        filtered = apply_family_filter(items)
+        if species and species.strip():
+            expected_species = species.strip().lower()
+            return [
+                row
+                for row in filtered
+                if expected_species in ((row.get("species") or "").strip().lower())
+            ]
+
+        if genus and genus.strip():
+            expected_genus = genus.strip().lower()
+            return [
+                row
+                for row in filtered
+                if expected_genus in ((row.get("genus") or "").strip().lower())
+            ]
+
+        return filtered
+
+    # Filtre famille : on recupere des cd_ref d'especes de cette famille via TaxHub,
+    # puis on interroge Silene Expert avec cd_ref jusqu'a obtenir assez de resultats.
     if family and family.strip() and not (genus and genus.strip()) and not (species and species.strip()):
         cd_refs = _taxhub_get_cd_refs_by_family(family.strip(), max_items=50)
         collected: list[dict[str, Any]] = []
@@ -501,7 +527,7 @@ def search_silene_expert_mapped(
                 payload={"cd_ref": cd_ref, "limit": int(limit), "page": 1},
                 export_csv=False,
             )
-            batch = apply_family_filter(batch)
+            batch = apply_taxon_filters(batch)
             collected.extend(batch)
             if len(collected) >= int(limit):
                 break
@@ -511,7 +537,7 @@ def search_silene_expert_mapped(
         return collected
 
     rows = search_silene_expert(payload=payload, export_csv=False)
-    rows = apply_family_filter(rows)
+    rows = apply_taxon_filters(rows)
     if export_csv:
         _export_mapped_rows(rows, export_file=export_file or EXPORT_FILE)
     return rows
