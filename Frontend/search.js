@@ -1,4 +1,4 @@
-console.log("search.js charge");
+console.log("search.js loaded");
 
 const API_URL = "http://127.0.0.1:8000";
 const STORAGE_KEY = "biodiversity:last_search_v1";
@@ -12,16 +12,33 @@ const countText = document.getElementById("countText");
 const message = document.getElementById("message");
 
 const sourceSelect = document.getElementById("sourceSelect");
+const sourceCards = document.querySelectorAll(".source-card");
 
 const familyInput = document.getElementById("family");
 const speciesInput = document.getElementById("species");
 const genusInput = document.getElementById("genus");
 const countryInput = document.getElementById("country");
 
+function removeLegacySearchWidget() {
+    const legacyInput = document.querySelector('input[placeholder^="Search species"]');
+    if (!legacyInput) return;
+
+    const legacyContainer = legacyInput.closest("form, section, header, div");
+    if (legacyContainer && legacyContainer !== document.body && !legacyContainer.classList.contains("field")) {
+        legacyContainer.remove();
+        return;
+    }
+
+    legacyInput.remove();
+}
+
 function setLoading(isLoading) {
     searchBtn.disabled = isLoading;
     resetBtn.disabled = isLoading;
     exportBtn.disabled = isLoading;
+    sourceCards.forEach((card) => {
+        card.disabled = isLoading;
+    });
 }
 
 function getQueryParams() {
@@ -40,15 +57,15 @@ function getQueryParams() {
     return { source, family, species, genus, country, params };
 }
 
-function afficherResultats(data) {
+function renderResults(data) {
     resultsBody.innerHTML = "";
 
     if (!Array.isArray(data) || data.length === 0) {
         countText.textContent = "0 resultat trouve.";
         resultsBody.innerHTML = `
             <tr>
-                <td colspan="10" class="text-center text-muted">
-                    Aucun resultat trouve.
+                <td colspan="10" class="empty-state">
+                    No results found.
                 </td>
             </tr>
         `;
@@ -56,24 +73,24 @@ function afficherResultats(data) {
     }
 
     const firstTen = data.slice(0, 10);
-    countText.textContent = `${data.length} resultat(s) recupere(s). Affichage des 10 premiers.`;
+    countText.textContent = `${data.length} result(s) retrieved. Showing first 10.`;
 
     function getIucnValue(item) {
-        return item.status || item.iucn_status || item.redListCategory || "Non renseigne";
+        return item.status || item.iucn_status || item.redListCategory || "Not provided";
     }
 
     firstTen.forEach(function (item) {
         const row = document.createElement("tr");
         row.innerHTML = `
-            <td>${item.source_bdd || "Non renseigne"}</td>
-            <td>${item.country || "Non renseigne"}</td>
-            <td>${item.coordinates || "Non renseigne"}</td>
-            <td>${item.eventDate || "Non renseigne"}</td>
-            <td>${item.basisOfRecord || "Non renseigne"}</td>
-            <td>${item.datasetName || "Non renseigne"}</td>
-            <td>${item.family || "Non renseigne"}</td>
-            <td>${item.genus || "Non renseigne"}</td>
-            <td>${item.species || "Non renseigne"}</td>
+            <td>${item.source_bdd || "Not provided"}</td>
+            <td>${item.country || "Not provided"}</td>
+            <td>${item.coordinates || "Not provided"}</td>
+            <td>${item.eventDate || "Not provided"}</td>
+            <td>${item.basisOfRecord || "Not provided"}</td>
+            <td>${item.datasetName || "Not provided"}</td>
+            <td>${item.family || "Not provided"}</td>
+            <td>${item.genus || "Not provided"}</td>
+            <td>${item.species || "Not provided"}</td>
             <td>${getIucnValue(item)}</td>
         `;
         resultsBody.appendChild(row);
@@ -116,60 +133,87 @@ function restoreLastSearch() {
             speciesInput.value = saved.params.species || "";
             genusInput.value = saved.params.genus || "";
             countryInput.value = saved.params.country || "";
+            syncSourceCards();
         }
 
-        afficherResultats(saved.data);
-        message.innerHTML = `<span class="text-muted">Resultats restaures apres rechargement.</span>`;
+        renderResults(saved.data);
+        setMessage("Results restored after reload.", "neutral");
     } catch {
         // ignore parse errors
     }
+}
+
+function setMessage(text, type) {
+    message.textContent = text;
+    message.className = "message-pill";
+    if (type === "success") message.classList.add("success");
+    if (type === "error") message.classList.add("error");
+    if (type === "neutral") message.classList.add("neutral");
+}
+
+function syncSourceCards() {
+    const activeSource = ((sourceSelect && sourceSelect.value) || "gbif").trim();
+    sourceCards.forEach((card) => {
+        card.classList.toggle("active", card.dataset.source === activeSource);
+    });
 }
 
 async function runSearch() {
     const { source, family, species, genus, country, params } = getQueryParams();
 
     try {
-        message.innerHTML = `<span class="text-primary">Recherche en cours...</span>`;
+        setMessage("Search in progress...", "neutral");
         setLoading(true);
 
         let data = [];
 
         if (source === "gbif") {
             const url = `${API_URL}/search?${params.toString()}`;
-            console.log("URL appelee :", url);
+            console.log("Called URL:", url);
             const response = await fetch(url);
-            if (!response.ok) throw new Error("Erreur API GBIF");
+            if (!response.ok) throw new Error("GBIF API error");
             data = await response.json();
         } else if (source === "silene_expert") {
-            // Mapping : on appelle une route "search" cote backend qui applique family/genus/species/country.
+            // Mapping route applies family/genus/species/country filters server-side.
             const url = `${API_URL}/silene-expert/search?${params.toString()}`;
-            console.log("URL appelee :", url);
+            console.log("Called URL:", url);
             const response = await fetch(url);
-            if (!response.ok) throw new Error("Erreur API Silene Expert");
+            if (!response.ok) throw new Error("Silene Expert API error");
             data = await response.json();
         } else if (source === "both") {
-            // Endpoint backend combine : 1 appel + 1 seul CSV genere cote backend.
+            // Combined endpoint: one call and one server-side CSV.
             const url = `${API_URL}/combined/search?${params.toString()}`;
-            console.log("URL appelee :", url);
+            console.log("Called URL:", url);
             const response = await fetch(url);
-            if (!response.ok) throw new Error("Erreur API combinee");
+            if (!response.ok) throw new Error("Combined API error");
             data = await response.json();
         }
 
-        // Securite : appliquer le filtre famille cote client (certaines sources peuvent renvoyer
-        // des familles non normalisees ou vides).
+        // Safety filter: some sources can return empty or non-normalized families.
         data = applyFamilyFilterClientSide(data, family);
 
-        afficherResultats(data);
+        renderResults(data);
         saveLastSearch({ params: { source, family, species, genus, country }, data });
 
-        message.innerHTML = `<span class="text-success">Recherche terminee.</span>`;
+        setMessage("Search completed.", "success");
     } catch (error) {
         console.error(error);
-        message.innerHTML = `<span class="text-danger">Erreur : impossible de recuperer les donnees.</span>`;
+        setMessage("Error: unable to retrieve data.", "error");
     } finally {
         setLoading(false);
     }
+}
+
+sourceCards.forEach((card) => {
+    card.addEventListener("click", () => {
+        if (!sourceSelect) return;
+        sourceSelect.value = card.dataset.source || "gbif";
+        syncSourceCards();
+    });
+});
+
+if (sourceSelect) {
+    sourceSelect.addEventListener("change", syncSourceCards);
 }
 
 searchBtn.addEventListener("click", runSearch);
@@ -190,8 +234,8 @@ resetBtn.addEventListener("click", function () {
     genusInput.value = "";
     countryInput.value = "";
 
-    message.innerHTML = "";
-    countText.textContent = "Aucune recherche lancee.";
+    setMessage("Ready to search.", "neutral");
+    countText.textContent = "No search started.";
 
     try {
         localStorage.removeItem(STORAGE_KEY);
@@ -199,8 +243,8 @@ resetBtn.addEventListener("click", function () {
 
     resultsBody.innerHTML = `
         <tr>
-            <td colspan="10" class="text-center text-muted">
-                Aucun resultat a afficher.
+            <td colspan="10" class="empty-state">
+                No results to display.
             </td>
         </tr>
     `;
@@ -214,22 +258,22 @@ exportBtn.addEventListener("click", function () {
 
     if (source === "gbif") {
         url = `${API_URL}/search/csv?${params.toString()}`;
-        defaultFilename = "resultats_gbif.csv";
+        defaultFilename = "gbif_results.csv";
     } else if (source === "silene_expert") {
         url = `${API_URL}/silene-expert/search/csv?${params.toString()}`;
-        defaultFilename = "resultats_silene_expert.csv";
+        defaultFilename = "silene_expert_results.csv";
     } else {
         url = `${API_URL}/combined/search/csv?${params.toString()}`;
-        defaultFilename = "resultats_gbif_silene.csv";
+        defaultFilename = "gbif_silene_results.csv";
     }
 
     (async () => {
         try {
-            message.innerHTML = `<span class="text-primary">Generation du CSV...</span>`;
+            setMessage("Generating CSV...", "neutral");
             setLoading(true);
 
             const response = await fetch(url);
-            if (!response.ok) throw new Error("Erreur CSV");
+            if (!response.ok) throw new Error("CSV error");
 
             const blob = await response.blob();
             const objectUrl = URL.createObjectURL(blob);
@@ -243,14 +287,16 @@ exportBtn.addEventListener("click", function () {
 
             URL.revokeObjectURL(objectUrl);
 
-            message.innerHTML = `<span class="text-success">CSV telecharge.</span>`;
+            setMessage("CSV downloaded.", "success");
         } catch (error) {
             console.error(error);
-            message.innerHTML = `<span class="text-danger">Erreur : impossible de telecharger le CSV.</span>`;
+            setMessage("Error: unable to download CSV.", "error");
         } finally {
             setLoading(false);
         }
     })();
 });
 
+syncSourceCards();
+removeLegacySearchWidget();
 restoreLastSearch();
