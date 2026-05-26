@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
 from Backend.app.services.silene_expert_service import (
@@ -51,6 +51,11 @@ def export_csv(
     limit: int = 200,
     max_pages: int = 50,
 ):
+    if not any([(family or "").strip(), (genus or "").strip(), (species or "").strip()]):
+        raise HTTPException(
+            status_code=400,
+            detail="Pour exporter un CSV Silene Expert, renseigner au moins un filtre taxonomique (family/genus/species).",
+        )
     search_silene_expert_mapped(
         family=family,
         genus=genus,

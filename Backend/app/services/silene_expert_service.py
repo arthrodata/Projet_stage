@@ -376,7 +376,7 @@ def search_silene_expert(
         enrichments = {
             species: get_iucn_enrichment(species)
             for species in unique_species
-            if species and species != "Non renseigne"
+            if species and species not in {"Non renseigne", "Non renseigne"}
         }
 
         def iucn_value(species_name, key):
@@ -460,6 +460,7 @@ def search_silene_expert_mapped(
     fetch_all: bool = False,
     include_iucn: bool = True,
     max_pages: int | None = None,
+    max_records: int | None = None,
 ) -> list[dict[str, Any]]:
     """
     Version "simple" pour le front : memes champs que la recherche GBIF.
@@ -511,6 +512,9 @@ def search_silene_expert_mapped(
             if not batch:
                 break
             collected.extend(batch)
+            if max_records is not None and len(collected) >= int(max_records):
+                collected = collected[: int(max_records)]
+                break
             if len(batch) < safe_limit:
                 break
             current_page += 1

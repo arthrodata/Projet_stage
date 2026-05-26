@@ -53,6 +53,7 @@ def get_country_code(country):
     country_lower = country.casefold()
     aliases = {
         "algerie": "DZ",
+        "algerie": "DZ",
         "usa": "US",
         "u.s.a": "US",
         "etats-unis": "US",
@@ -62,7 +63,9 @@ def get_country_code(country):
     if country_lower in aliases:
         return aliases[country_lower]
 
-    response = requests.get(GBIF_COUNTRIES_URL, timeout=20)
+    session = requests.Session()
+    session.trust_env = False
+    response = session.get(GBIF_COUNTRIES_URL, timeout=20)
     response.raise_for_status()
     for item in response.json():
         names = [
@@ -78,7 +81,9 @@ def get_country_code(country):
 
 
 def get_gbif_family_key(family):
-    response = requests.get(
+    session = requests.Session()
+    session.trust_env = False
+    response = session.get(
         GBIF_SPECIES_MATCH_URL,
         params={"name": family, "rank": "FAMILY"},
         timeout=20,
@@ -90,6 +95,28 @@ def get_gbif_family_key(family):
         return None
 
     return data.get("usageKey") or data.get("familyKey")
+
+
+def get_gbif_taxon_key(name: str, rank: str) -> int | None:
+    query = (name or "").strip()
+    if not query:
+        return None
+
+    session = requests.Session()
+    session.trust_env = False
+    response = session.get(
+        GBIF_SPECIES_MATCH_URL,
+        params={"name": query, "rank": rank},
+        timeout=20,
+    )
+    response.raise_for_status()
+
+    data = response.json()
+    if str(data.get("rank") or "").upper() != str(rank).upper():
+        return None
+
+    key = data.get("usageKey") or data.get("speciesKey") or data.get("genusKey") or data.get("familyKey")
+    return int(key) if isinstance(key, int) else None
 
 
 def _format_coordinates(row):
@@ -147,6 +174,7 @@ def search_gbif(
     fetch_all: bool = False,
     include_iucn: bool = True,
     max_pages: int | None = None,
+    max_records: int | None = None,
 ):
     safe_limit = int(limit) if limit and int(limit) > 0 else 100
     safe_page = int(page) if page and int(page) > 0 else 1
@@ -162,10 +190,20 @@ def search_gbif(
         else:
             params["q"] = family
 
-    if genus:
-        q_parts.append(genus)
+    # Prefer GBIF taxonKey when possible (much faster than broad q= searches)
     if species:
-        q_parts.append(species)
+        species_key = get_gbif_taxon_key(species, "SPECIES")
+        if species_key:
+            params["taxonKey"] = species_key
+        else:
+            q_parts.append(species)
+
+    if genus and "taxonKey" not in params:
+        genus_key = get_gbif_taxon_key(genus, "GENUS")
+        if genus_key:
+            params["taxonKey"] = genus_key
+        else:
+            q_parts.append(genus)
 
     if country:
         country_code = get_country_code(country)
@@ -176,7 +214,9 @@ def search_gbif(
         params["q"] = " ".join(q_parts)
 
     def fetch_page(offset: int) -> dict:
-        r = requests.get(
+        session = requests.Session()
+        session.trust_env = False
+        r = session.get(
             "https://api.gbif.org/v1/occurrence/search",
             params={**params, "offset": int(offset)},
             timeout=30,
@@ -199,6 +239,9 @@ def search_gbif(
                 break
             pages += 1
             if max_pages is not None and pages >= int(max_pages):
+                break
+            if max_records is not None and len(all_results) >= int(max_records):
+                all_results = all_results[: int(max_records)]
                 break
             offset += safe_limit
         df = pd.DataFrame(all_results)
@@ -252,3 +295,60 @@ def search_gbif(
         )
 
     return df.to_dict(orient="records")
+
+
+def estimate_gbif_count(
+    family: str | None = None,
+    genus: str | None = None,
+    species: str | None = None,
+    country: str | None = None,
+) -> int:
+    """
+    Retourne le nombre total d'occurrences GBIF correspondant aux filtres.
+    Utilise `limit=0` pour obtenir rapidement le champ `count`.
+    """
+    params = {"basisOfRecord": TARGET_BASIS_OF_RECORD, "limit": 0, "offset": 0}
+    q_parts: list[str] = []
+
+    if family:
+        family_key = get_gbif_family_key(family)
+        if family_key:
+            params["taxonKey"] = family_key
+        else:
+            params["q"] = family
+
+    if species:
+        species_key = get_gbif_taxon_key(species, "SPECIES")
+        if species_key:
+            params["taxonKey"] = species_key
+        else:
+            q_parts.append(species)
+
+    if genus and "taxonKey" not in params:
+        genus_key = get_gbif_taxon_key(genus, "GENUS")
+        if genus_key:
+            params["taxonKey"] = genus_key
+        else:
+            q_parts.append(genus)
+
+    if country:
+        country_code = get_country_code(country)
+        if country_code:
+            params["country"] = country_code
+        else:
+            # Pas de code -> on ne peut pas estimer correctement via l'API GBIF,
+            # on garde une estimation conservative.
+            return 0
+
+    if q_parts:
+        params["q"] = " ".join(q_parts)
+
+    session = requests.Session()
+    session.trust_env = False
+    response = session.get("https://api.gbif.org/v1/occurrence/search", params=params, timeout=20)
+    response.raise_for_status()
+    data = response.json()
+    if not isinstance(data, dict):
+        return 0
+    count = data.get("count")
+    return int(count) if isinstance(count, int) else 0

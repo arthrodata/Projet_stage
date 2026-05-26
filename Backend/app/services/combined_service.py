@@ -122,6 +122,7 @@ def search_gbif_and_silene_expert(
     fetch_all: bool = False,
     include_iucn: bool = True,
     max_pages: int | None = None,
+    max_records: int | None = None,
 ) -> list[dict[str, Any]]:
     """
     Recherche GBIF + Silene Expert en parallele et exporte UN SEUL CSV.
@@ -139,6 +140,7 @@ def search_gbif_and_silene_expert(
             fetch_all=fetch_all,
             include_iucn=include_iucn,
             max_pages=max_pages,
+            max_records=max_records,
         )
         f_silene = executor.submit(
             search_silene_expert_mapped,
@@ -152,6 +154,7 @@ def search_gbif_and_silene_expert(
             fetch_all=fetch_all,
             include_iucn=include_iucn,
             max_pages=max_pages,
+            max_records=max_records,
         )
 
         gbif_rows = f_gbif.result()

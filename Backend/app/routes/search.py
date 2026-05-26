@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
 from Backend.app.services.gbif_service import EXPORT_FILE, search_gbif
@@ -34,6 +34,11 @@ def export_csv(
     limit: int = 300,
     max_pages: int = 50,
 ):
+    if not any([(family or "").strip(), (genus or "").strip(), (species or "").strip()]):
+        raise HTTPException(
+            status_code=400,
+            detail="Pour exporter un CSV GBIF, renseigner au moins un filtre taxonomique (family/genus/species).",
+        )
     search_gbif(
         family=family,
         genus=genus,
