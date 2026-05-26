@@ -119,6 +119,9 @@ def search_gbif_and_silene_expert(
     *,
     export_csv: bool = True,
     export_file: Path | None = None,
+    fetch_all: bool = False,
+    include_iucn: bool = True,
+    max_pages: int | None = None,
 ) -> list[dict[str, Any]]:
     """
     Recherche GBIF + Silene Expert en parallele et exporte UN SEUL CSV.
@@ -128,12 +131,14 @@ def search_gbif_and_silene_expert(
     with ThreadPoolExecutor(max_workers=2) as executor:
         f_gbif = executor.submit(
             search_gbif,
-            family,
-            genus,
-            species,
-            country,
-            False,  # export_csv
-            None,  # export_file
+            family=family,
+            genus=genus,
+            species=species,
+            country=country,
+            export_csv=False,
+            fetch_all=fetch_all,
+            include_iucn=include_iucn,
+            max_pages=max_pages,
         )
         f_silene = executor.submit(
             search_silene_expert_mapped,
@@ -142,8 +147,11 @@ def search_gbif_and_silene_expert(
             species=species,
             country=country,
             limit=limit,
-            page=page,
+            page=1 if fetch_all else page,
             export_csv=False,
+            fetch_all=fetch_all,
+            include_iucn=include_iucn,
+            max_pages=max_pages,
         )
 
         gbif_rows = f_gbif.result()

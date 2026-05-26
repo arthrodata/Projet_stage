@@ -224,6 +224,7 @@ def search_silene_expert(
     *,
     export_csv: bool = True,
     export_file: Path | None = None,
+    include_iucn: bool = True,
 ) -> list[dict[str, Any]]:
     """
     Appelle l'endpoint Silene Expert utilise par le front web :
@@ -367,31 +368,39 @@ def search_silene_expert(
     # Identifier la base de donnees source
     df["source_bdd"] = "Silene Expert"
 
-    # Cache IUCN : une espece unique = 1 appel IUCN
-    species_clean = df["species"].fillna("").astype(str).map(lambda s: s.strip())
-    unique_species = species_clean.unique().tolist()
+    if include_iucn:
+        # Cache IUCN : une espece unique = 1 appel IUCN
+        species_clean = df["species"].fillna("").astype(str).map(lambda s: s.strip())
+        unique_species = species_clean.unique().tolist()
 
-    enrichments = {
-        species: get_iucn_enrichment(species)
-        for species in unique_species
-        if species and species not in {"Non renseigne", "Non renseigne"}
-    }
+        enrichments = {
+            species: get_iucn_enrichment(species)
+            for species in unique_species
+            if species and species != "Non renseigne"
+        }
 
-    def iucn_value(species_name, key):
-        return enrichments.get(species_name, {}).get(key)
+        def iucn_value(species_name, key):
+            return enrichments.get(species_name, {}).get(key)
 
-    for column in (
-        "iucn_status",
-        "iucn_lookup_status",
-        "iucn_assessment_id",
-        "iucn_year",
-        "iucn_scope",
-    ):
-        df[column] = species_clean.map(lambda name, key=column: iucn_value(name, key))
+        for column in (
+            "iucn_status",
+            "iucn_lookup_status",
+            "iucn_assessment_id",
+            "iucn_year",
+            "iucn_scope",
+        ):
+            df[column] = species_clean.map(lambda name, key=column: iucn_value(name, key))
 
-    df["iucn_status"] = df["iucn_status"].fillna(IUCN_EMPTY_STATUS)
-    # Colonne standardisee (exports) pour l'IUCN Red List
-    df["status"] = df["iucn_status"]
+        df["iucn_status"] = df["iucn_status"].fillna(IUCN_EMPTY_STATUS)
+        # Colonne standardisee (exports) pour l'IUCN Red List
+        df["status"] = df["iucn_status"]
+    else:
+        df["iucn_status"] = IUCN_EMPTY_STATUS
+        df["iucn_lookup_status"] = "skipped"
+        df["iucn_assessment_id"] = ""
+        df["iucn_year"] = ""
+        df["iucn_scope"] = ""
+        df["status"] = IUCN_EMPTY_STATUS
 
     df = df.fillna("Non renseigne")
 
@@ -448,6 +457,9 @@ def search_silene_expert_mapped(
     *,
     export_csv: bool = True,
     export_file: Path | None = None,
+    fetch_all: bool = False,
+    include_iucn: bool = True,
+    max_pages: int | None = None,
 ) -> list[dict[str, Any]]:
     """
     Version "simple" pour le front : memes champs que la recherche GBIF.
@@ -456,7 +468,61 @@ def search_silene_expert_mapped(
     - on filtre Silene Expert avec les cles texte `family`, `genus`, `species`
     - `country` n'est pas utilise pour l'instant (Silene Expert est centre France)
     """
-    payload: dict[str, Any] = {"page": int(page), "limit": int(limit)}
+    safe_limit = int(limit) if limit and int(limit) > 0 else 100
+    safe_page = int(page) if page and int(page) > 0 else 1
+
+    if fetch_all:
+        collected: list[dict[str, Any]] = []
+
+        family_only = bool(family and family.strip()) and not (genus and genus.strip()) and not (species and species.strip())
+        if family_only:
+            cd_refs = _taxhub_get_cd_refs_by_family(family.strip(), max_items=50)
+            for cd_ref in cd_refs:
+                batch = search_silene_expert(
+                    payload={"cd_ref": cd_ref, "limit": safe_limit, "page": 1},
+                    export_csv=False,
+                    **({} if include_iucn else {"include_iucn": False}),
+                )
+                batch = [
+                    r
+                    for r in batch
+                    if (family.strip().lower() in ((r.get("family") or "").strip().lower()))
+                ]
+                collected.extend(batch)
+
+            if export_csv:
+                _export_mapped_rows(collected, export_file=export_file or EXPORT_FILE)
+            return collected
+
+        current_page = 1
+        pages = 0
+        while True:
+            batch = search_silene_expert_mapped(
+                family=family,
+                genus=genus,
+                species=species,
+                country=country,
+                limit=safe_limit,
+                page=current_page,
+                export_csv=False,
+                fetch_all=False,
+                include_iucn=include_iucn,
+            )
+            if not batch:
+                break
+            collected.extend(batch)
+            if len(batch) < safe_limit:
+                break
+            current_page += 1
+            pages += 1
+            if max_pages is not None and pages >= int(max_pages):
+                break
+
+        if export_csv:
+            _export_mapped_rows(collected, export_file=export_file or EXPORT_FILE)
+        return collected
+
+    payload: dict[str, Any] = {"page": safe_page, "limit": safe_limit}
 
     # Silene Expert accepte certains filtres texte (verifie) :
     # - species/nom_valide : OK
@@ -489,6 +555,8 @@ def search_silene_expert_mapped(
 
     # Si l'utilisateur met un pays different de France, on retourne vide (coherence minimale).
     if country and country.strip() and country.strip().lower() not in {"fr", "france"}:
+        if export_csv:
+            _export_mapped_rows([], export_file=export_file or EXPORT_FILE)
         return []
 
     def apply_family_filter(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -524,19 +592,22 @@ def search_silene_expert_mapped(
         collected: list[dict[str, Any]] = []
         for cd_ref in cd_refs[:15]:
             batch = search_silene_expert(
-                payload={"cd_ref": cd_ref, "limit": int(limit), "page": 1},
+                payload={"cd_ref": cd_ref, "limit": safe_limit, "page": 1},
                 export_csv=False,
             )
             batch = apply_taxon_filters(batch)
             collected.extend(batch)
-            if len(collected) >= int(limit):
+            if len(collected) >= safe_limit:
                 break
-        collected = collected[: int(limit)]
+        collected = collected[:safe_limit]
         if export_csv:
             _export_mapped_rows(collected, export_file=export_file or EXPORT_FILE)
         return collected
 
-    rows = search_silene_expert(payload=payload, export_csv=False)
+    if include_iucn:
+        rows = search_silene_expert(payload=payload, export_csv=False)
+    else:
+        rows = search_silene_expert(payload=payload, export_csv=False, include_iucn=False)
     rows = apply_taxon_filters(rows)
     if export_csv:
         _export_mapped_rows(rows, export_file=export_file or EXPORT_FILE)

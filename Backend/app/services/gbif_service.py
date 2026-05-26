@@ -53,7 +53,6 @@ def get_country_code(country):
     country_lower = country.casefold()
     aliases = {
         "algerie": "DZ",
-        "algerie": "DZ",
         "usa": "US",
         "u.s.a": "US",
         "etats-unis": "US",
@@ -140,10 +139,19 @@ def search_gbif(
     genus=None,
     species=None,
     country=None,
+    limit: int = 100,
+    page: int = 1,
     export_csv: bool = True,
     export_file: Path | None = None,
+    *,
+    fetch_all: bool = False,
+    include_iucn: bool = True,
+    max_pages: int | None = None,
 ):
-    params = {"basisOfRecord": TARGET_BASIS_OF_RECORD, "limit": 100}
+    safe_limit = int(limit) if limit and int(limit) > 0 else 100
+    safe_page = int(page) if page and int(page) > 0 else 1
+
+    params = {"basisOfRecord": TARGET_BASIS_OF_RECORD, "limit": safe_limit}
     q_parts = []
     country_code = None
 
@@ -167,13 +175,37 @@ def search_gbif(
     if q_parts:
         params["q"] = " ".join(q_parts)
 
-    response = requests.get(
-        "https://api.gbif.org/v1/occurrence/search",
-        params=params,
-        timeout=30,
-    )
-    response.raise_for_status()
-    df = pd.DataFrame(response.json().get("results", []))
+    def fetch_page(offset: int) -> dict:
+        r = requests.get(
+            "https://api.gbif.org/v1/occurrence/search",
+            params={**params, "offset": int(offset)},
+            timeout=30,
+        )
+        r.raise_for_status()
+        data = r.json()
+        return data if isinstance(data, dict) else {}
+
+    if fetch_all:
+        offset = 0
+        pages = 0
+        all_results: list[dict] = []
+        while True:
+            data = fetch_page(offset=offset)
+            results = data.get("results") if isinstance(data.get("results"), list) else []
+            if not results:
+                break
+            all_results.extend(results)
+            if data.get("endOfRecords") is True:
+                break
+            pages += 1
+            if max_pages is not None and pages >= int(max_pages):
+                break
+            offset += safe_limit
+        df = pd.DataFrame(all_results)
+    else:
+        offset = (safe_page - 1) * safe_limit
+        data = fetch_page(offset=offset)
+        df = pd.DataFrame(data.get("results", []))
     effective_export_file = export_file or EXPORT_FILE
 
     if df.empty:
@@ -202,7 +234,12 @@ def search_gbif(
     if family:
         df = df[df["family"].str.contains(family, case=False, na=False)]
 
-    df = _add_iucn_columns(df)
+    if include_iucn:
+        df = _add_iucn_columns(df)
+    else:
+        df["iucn_status"] = IUCN_EMPTY_STATUS
+        df["status"] = IUCN_EMPTY_STATUS
+        df["redListCategory"] = IUCN_EMPTY_STATUS
     df["source_bdd"] = "GBIF"
     df = df.reindex(columns=EXPORT_COLUMNS).fillna("Non renseigne")
 

@@ -1,5 +1,7 @@
 from fastapi import APIRouter
-from Backend.app.services.gbif_service import search_gbif
+from fastapi.responses import FileResponse
+
+from Backend.app.services.gbif_service import EXPORT_FILE, search_gbif
 
 
 router = APIRouter()
@@ -13,10 +15,41 @@ def search(
 ):
 
     data = search_gbif(
-        family,
-        genus,
-        species,
-        country
+        family=family,
+        genus=genus,
+        species=species,
+        country=country,
+        export_csv=True,
     )
 
     return data
+
+
+@router.get("/search/csv")
+def export_csv(
+    family: str = None,
+    genus: str = None,
+    species: str = None,
+    country: str = None,
+    limit: int = 300,
+    max_pages: int = 50,
+):
+    search_gbif(
+        family=family,
+        genus=genus,
+        species=species,
+        country=country,
+        limit=limit,
+        fetch_all=True,
+        include_iucn=False,
+        max_pages=max_pages,
+        export_csv=True,
+        export_file=EXPORT_FILE,
+    )
+
+    return FileResponse(
+        path=str(EXPORT_FILE),
+        media_type="text/csv; charset=utf-8",
+        filename="resultats_gbif.csv",
+        headers={"Cache-Control": "no-store"},
+    )

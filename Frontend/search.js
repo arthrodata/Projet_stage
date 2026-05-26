@@ -207,16 +207,50 @@ resetBtn.addEventListener("click", function () {
 });
 
 exportBtn.addEventListener("click", function () {
-    const source = ((sourceSelect && sourceSelect.value) || "gbif").trim();
+    const { source, family, species, genus, country, params } = getQueryParams();
+
+    let url = "";
+    let defaultFilename = "resultats.csv";
+
     if (source === "gbif") {
-        alert("CSV GBIF genere cote backend : Backend/exports/resultats.csv");
-        return;
+        url = `${API_URL}/search/csv?${params.toString()}`;
+        defaultFilename = "resultats_gbif.csv";
+    } else if (source === "silene_expert") {
+        url = `${API_URL}/silene-expert/search/csv?${params.toString()}`;
+        defaultFilename = "resultats_silene_expert.csv";
+    } else {
+        url = `${API_URL}/combined/search/csv?${params.toString()}`;
+        defaultFilename = "resultats_gbif_silene.csv";
     }
-    if (source === "silene_expert") {
-        alert("CSV Silene Expert genere cote backend : Backend/exports/resultats_silene_expert.csv");
-        return;
-    }
-    alert("CSV combine genere cote backend : Backend/exports/resultats_gbif_silene.csv");
+
+    (async () => {
+        try {
+            message.innerHTML = `<span class="text-primary">Generation du CSV...</span>`;
+            setLoading(true);
+
+            const response = await fetch(url);
+            if (!response.ok) throw new Error("Erreur CSV");
+
+            const blob = await response.blob();
+            const objectUrl = URL.createObjectURL(blob);
+
+            const a = document.createElement("a");
+            a.href = objectUrl;
+            a.download = defaultFilename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+
+            URL.revokeObjectURL(objectUrl);
+
+            message.innerHTML = `<span class="text-success">CSV telecharge.</span>`;
+        } catch (error) {
+            console.error(error);
+            message.innerHTML = `<span class="text-danger">Erreur : impossible de telecharger le CSV.</span>`;
+        } finally {
+            setLoading(false);
+        }
+    })();
 });
 
 restoreLastSearch();
