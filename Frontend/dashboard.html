@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BioData Explorer — Dashboard</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="search.css">
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-mark">B</div>
+            <div>
+                <h1>BioData Explorer</h1>
+                <p>Biological occurrences</p>
+            </div>
+        </div>
+
+        <nav class="side-nav" aria-label="Main navigation">
+            <a class="nav-item active" href="dashboard.html">
+                <span class="nav-icon">DB</span>
+                Dashboard
+            </a>
+            <a class="nav-item" href="search.html#searchPanel">
+                <span class="nav-icon">RE</span>
+                Search
+            </a>
+        </nav>
+
+        <div class="api-card">
+            <span class="status-dot"></span>
+            <div>
+                <strong>Backend FastAPI</strong>
+                <p>http://127.0.0.1:8000</p>
+            </div>
+        </div>
+    </aside>
+
+    <main class="main-area">
+        <header class="dash-topbar">
+            <div class="dash-title">
+                <span class="section-kicker">Dashboard</span>
+                <h2>BioData Explorer</h2>
+                <p class="dash-subtitle">Overview of your latest analyses and exports.</p>
+            </div>
+
+            <div class="dash-search" aria-label="Search (visual)">
+                <span class="dash-search-icon">⌕</span>
+                <input type="search" placeholder="Search the dashboard (visual)" disabled>
+            </div>
+        </header>
+
+        <section class="dash-cards" aria-label="Stats">
+            <article class="dash-card dash-card-blue">
+                <div class="dash-card-head">
+                    <span class="dash-card-title">Connected sources</span>
+                    <div class="dash-card-icon">⛁</div>
+                </div>
+                <div class="dash-card-value" id="statSources">3</div>
+                <div class="dash-card-meta" id="statSourcesMeta">3 configured</div>
+            </article>
+
+            <article class="dash-card dash-card-green">
+                <div class="dash-card-head">
+                    <span class="dash-card-title">Occurrences retrieved</span>
+                    <div class="dash-card-icon">↗</div>
+                </div>
+                <div class="dash-card-value" id="statOccurrences">0</div>
+                <div class="dash-card-meta" id="statOccurrencesMeta">last search</div>
+            </article>
+
+            <article class="dash-card dash-card-violet">
+                <div class="dash-card-head">
+                    <span class="dash-card-title">Species detected</span>
+                    <div class="dash-card-icon">⚗</div>
+                </div>
+                <div class="dash-card-value" id="statSpecies">0</div>
+                <div class="dash-card-meta" id="statSpeciesMeta">unique</div>
+            </article>
+
+            <article class="dash-card dash-card-orange">
+                <div class="dash-card-head">
+                    <span class="dash-card-title">CSV exports</span>
+                    <div class="dash-card-icon">⎘</div>
+                </div>
+                <div class="dash-card-value" id="statExports">3</div>
+                <div class="dash-card-meta" id="statExportsMeta">GBIF / Silene / Combined</div>
+            </article>
+        </section>
+
+        <section class="panel dash-panel">
+            <div class="panel-heading compact">
+                <div>
+                    <span class="section-kicker">Latest results</span>
+                    <h3>Last 5 records</h3>
+                </div>
+                <div id="dashMessage" class="message-pill neutral">Loading...</div>
+            </div>
+
+            <div class="table-card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Source</th>
+                            <th>Country</th>
+                            <th>Species</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lastRowsBody">
+                        <tr>
+                            <td colspan="4" class="empty-state">No saved search.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script src="dashboard.js?v=20260528-dashboard"></script>
+</body>
+</html>

@@ -61,7 +61,7 @@ function renderResults(data) {
     resultsBody.innerHTML = "";
 
     if (!Array.isArray(data) || data.length === 0) {
-        countText.textContent = "0 resultat trouve.";
+        countText.textContent = "0 result found.";
         resultsBody.innerHTML = `
             <tr>
                 <td colspan="10" class="empty-state">
@@ -73,7 +73,7 @@ function renderResults(data) {
     }
 
     const firstTen = data.slice(0, 10);
-    countText.textContent = `${data.length} result(s) retrieved. Showing first 10.`;
+    countText.textContent = `${data.length} result(s) retrieved. Showing the first 10.`;
 
     function getIucnValue(item) {
         return item.status || item.iucn_status || item.redListCategory || "Not provided";
