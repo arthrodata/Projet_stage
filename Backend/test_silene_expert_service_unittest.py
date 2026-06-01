@@ -1,7 +1,56 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
+from Backend.app.services import silene_expert_service
 from Backend.app.services.silene_expert_service import search_silene_expert, search_silene_expert_mapped
+
+
+class TestSileneExpertAuth(unittest.TestCase):
+    def setUp(self):
+        silene_expert_service._TOKEN_CACHE.token = None
+        silene_expert_service._TOKEN_CACHE.exp_epoch = None
+
+    def tearDown(self):
+        silene_expert_service._TOKEN_CACHE.token = None
+        silene_expert_service._TOKEN_CACHE.exp_epoch = None
+
+    def test_manual_token_has_priority_over_login(self):
+        with patch.dict(
+            "os.environ",
+            {
+                "SILENE_EXPERT_TOKEN": "manual-token",
+                "SILENE_EXPERT_LOGIN": "user",
+                "SILENE_EXPERT_PASSWORD": "password",
+            },
+            clear=True,
+        ), patch("Backend.app.services.silene_expert_service._login_and_get_token") as login:
+            token = silene_expert_service._get_token()
+
+        self.assertEqual(token, "manual-token")
+        login.assert_not_called()
+
+    def test_login_credentials_can_return_token(self):
+        response = Mock(status_code=200)
+        response.cookies.get.return_value = "login-token"
+        response.raise_for_status.return_value = None
+
+        session = Mock()
+        session.post.return_value = response
+
+        with patch.dict(
+            "os.environ",
+            {
+                "SILENE_EXPERT_LOGIN": "user",
+                "SILENE_EXPERT_PASSWORD": "password",
+                "SILENE_EXPERT_APP_ID": "3",
+            },
+            clear=True,
+        ), patch("Backend.app.services.silene_expert_service._session", return_value=session):
+            token = silene_expert_service._get_token()
+
+        self.assertEqual(token, "login-token")
+        session.post.assert_called_once()
+        self.assertIn("/api/auth/login", session.post.call_args.args[0])
 
 
 class TestSileneExpertMappedSearch(unittest.TestCase):

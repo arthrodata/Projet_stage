@@ -20,6 +20,7 @@ from Backend.app.services.iucn_service import IUCN_EMPTY_STATUS, get_iucn_enrich
 SILENE_EXPERT_BASE_URL = "https://expert.silene.eu"
 TAXHUB_API_BASE_URL = "https://taxhub.silene.eu/api"
 EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "resultats_silene_expert.csv"
+DEFAULT_SILENE_EXPERT_APP_ID = "3"
 CSV_EXPORT_COLUMNS = [
     "source_bdd",
     "country",
@@ -112,7 +113,7 @@ def _login_and_get_token() -> Optional[str]:
         return None
 
     try:
-        app_id = int((os.getenv("SILENE_EXPERT_APP_ID") or "3").strip())
+        app_id = int((os.getenv("SILENE_EXPERT_APP_ID") or DEFAULT_SILENE_EXPERT_APP_ID).strip())
     except ValueError:
         app_id = 3
 
