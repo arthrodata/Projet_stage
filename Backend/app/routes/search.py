@@ -46,7 +46,7 @@ def export_csv(
         country=country,
         limit=limit,
         fetch_all=True,
-        include_iucn=False,
+        include_iucn=True,
         max_pages=max_pages,
         export_csv=True,
         export_file=EXPORT_FILE,
