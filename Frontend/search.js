@@ -18,6 +18,8 @@ const familyInput = document.getElementById("family");
 const speciesInput = document.getElementById("species");
 const genusInput = document.getElementById("genus");
 const countryInput = document.getElementById("country");
+const dateFromInput = document.getElementById("dateFrom");
+const dateToInput = document.getElementById("dateTo");
 
 function removeLegacySearchWidget() {
     const legacyInput = document.querySelector('input[placeholder^="Search species"]');
@@ -47,14 +49,18 @@ function getQueryParams() {
     const species = speciesInput.value.trim();
     const genus = genusInput.value.trim();
     const country = countryInput.value.trim();
+    const dateFrom = (dateFromInput && dateFromInput.value ? dateFromInput.value : "").trim();
+    const dateTo = (dateToInput && dateToInput.value ? dateToInput.value : "").trim();
 
     const params = new URLSearchParams();
     if (family !== "") params.append("family", family);
     if (species !== "") params.append("species", species);
     if (genus !== "") params.append("genus", genus);
     if (country !== "") params.append("country", country);
+    if (dateFrom !== "") params.append("date_from", dateFrom);
+    if (dateTo !== "") params.append("date_to", dateTo);
 
-    return { source, family, species, genus, country, params };
+    return { source, family, species, genus, country, dateFrom, dateTo, params };
 }
 
 function renderResults(data) {
@@ -133,6 +139,8 @@ function restoreLastSearch() {
             speciesInput.value = saved.params.species || "";
             genusInput.value = saved.params.genus || "";
             countryInput.value = saved.params.country || "";
+            if (dateFromInput) dateFromInput.value = saved.params.dateFrom || "";
+            if (dateToInput) dateToInput.value = saved.params.dateTo || "";
             syncSourceCards();
         }
 
@@ -159,7 +167,12 @@ function syncSourceCards() {
 }
 
 async function runSearch() {
-    const { source, family, species, genus, country, params } = getQueryParams();
+    const { source, family, species, genus, country, dateFrom, dateTo, params } = getQueryParams();
+
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+        setMessage("Error: date_from must be before date_to.", "error");
+        return;
+    }
 
     try {
         setMessage("Search in progress...", "neutral");
@@ -193,7 +206,7 @@ async function runSearch() {
         data = applyFamilyFilterClientSide(data, family);
 
         renderResults(data);
-        saveLastSearch({ params: { source, family, species, genus, country }, data });
+        saveLastSearch({ params: { source, family, species, genus, country, dateFrom, dateTo }, data });
 
         setMessage("Search completed.", "success");
     } catch (error) {
@@ -218,7 +231,7 @@ if (sourceSelect) {
 
 searchBtn.addEventListener("click", runSearch);
 
-[familyInput, speciesInput, genusInput, countryInput].forEach((input) => {
+[familyInput, speciesInput, genusInput, countryInput, dateFromInput, dateToInput].filter(Boolean).forEach((input) => {
     input.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
             e.preventDefault();
@@ -233,6 +246,8 @@ resetBtn.addEventListener("click", function () {
     speciesInput.value = "";
     genusInput.value = "";
     countryInput.value = "";
+    if (dateFromInput) dateFromInput.value = "";
+    if (dateToInput) dateToInput.value = "";
 
     setMessage("Ready to search.", "neutral");
     countText.textContent = "No search started.";
@@ -251,7 +266,12 @@ resetBtn.addEventListener("click", function () {
 });
 
 exportBtn.addEventListener("click", function () {
-    const { source, family, species, genus, country, params } = getQueryParams();
+    const { source, dateFrom, dateTo, params } = getQueryParams();
+
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+        setMessage("Error: date_from must be before date_to.", "error");
+        return;
+    }
 
     let url = "";
     let defaultFilename = "resultats.csv";

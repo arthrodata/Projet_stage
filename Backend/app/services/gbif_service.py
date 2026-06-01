@@ -1,9 +1,11 @@
 from pathlib import Path
 
+from datetime import date
 import pandas as pd
 import requests
 
 from Backend.app.services.iucn_service import IUCN_EMPTY_STATUS, get_iucn_enrichment
+from Backend.app.utils.date_filters import parse_any_date
 
 
 EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "resultats.csv"
@@ -166,6 +168,8 @@ def search_gbif(
     genus=None,
     species=None,
     country=None,
+    date_from: date | None = None,
+    date_to: date | None = None,
     limit: int = 100,
     page: int = 1,
     export_csv: bool = True,
@@ -182,6 +186,12 @@ def search_gbif(
     params = {"basisOfRecord": TARGET_BASIS_OF_RECORD, "limit": safe_limit}
     q_parts = []
     country_code = None
+
+    # GBIF supporte les intervalles via `eventDate=YYYY-MM-DD,YYYY-MM-DD`.
+    # Pour 1 seule borne (date_from OU date_to), on laisse l'API sans filtre
+    # et on filtre ensuite cote backend (formats eventDate variables).
+    if date_from and date_to:
+        params["eventDate"] = f"{date_from.isoformat()},{date_to.isoformat()}"
 
     if family:
         family_key = get_gbif_family_key(family)
@@ -276,6 +286,16 @@ def search_gbif(
         df = df[df["country"].str.contains(country, case=False, na=False)]
     if family:
         df = df[df["family"].str.contains(family, case=False, na=False)]
+
+    # Filtre date (avant enrichment IUCN pour limiter les appels)
+    if (date_from or date_to) and "eventDate" in df.columns:
+        parsed = df["eventDate"].map(parse_any_date)
+        mask = parsed.notna()
+        if date_from:
+            mask &= parsed >= date_from
+        if date_to:
+            mask &= parsed <= date_to
+        df = df[mask]
 
     if include_iucn:
         df = _add_iucn_columns(df)

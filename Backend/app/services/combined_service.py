@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import date
 from pathlib import Path
 from typing import Any, Optional
 
@@ -114,6 +115,8 @@ def search_gbif_and_silene_expert(
     genus: Optional[str] = None,
     species: Optional[str] = None,
     country: Optional[str] = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
     limit: int = 100,
     page: int = 1,
     *,
@@ -136,6 +139,8 @@ def search_gbif_and_silene_expert(
             genus=genus,
             species=species,
             country=country,
+            date_from=date_from,
+            date_to=date_to,
             export_csv=False,
             fetch_all=fetch_all,
             include_iucn=include_iucn,
@@ -148,6 +153,8 @@ def search_gbif_and_silene_expert(
             genus=genus,
             species=species,
             country=country,
+            date_from=date_from,
+            date_to=date_to,
             limit=limit,
             page=1 if fetch_all else page,
             export_csv=False,

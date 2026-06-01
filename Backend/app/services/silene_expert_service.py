@@ -4,6 +4,7 @@ import os
 import threading
 import time
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any, Optional
 
@@ -11,6 +12,7 @@ import pandas as pd
 import requests
 
 from Backend.app.services.iucn_service import IUCN_EMPTY_STATUS, get_iucn_enrichment
+from Backend.app.utils.date_filters import filter_rows_by_date_range
 
 
 # Service Silene Expert
@@ -605,6 +607,8 @@ def search_silene_expert_mapped(
     genus: Optional[str] = None,
     species: Optional[str] = None,
     country: Optional[str] = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
     limit: int = 100,
     page: int = 1,
     *,
@@ -644,6 +648,7 @@ def search_silene_expert_mapped(
                 ]
                 collected.extend(batch)
 
+            collected = filter_rows_by_date_range(collected, date_from=date_from, date_to=date_to)
             if export_csv:
                 _export_mapped_rows(collected, export_file=export_file or EXPORT_FILE)
             return collected
@@ -656,6 +661,8 @@ def search_silene_expert_mapped(
                 genus=genus,
                 species=species,
                 country=country,
+                date_from=date_from,
+                date_to=date_to,
                 limit=safe_limit,
                 page=current_page,
                 export_csv=False,
@@ -676,6 +683,7 @@ def search_silene_expert_mapped(
                 break
 
         if export_csv:
+            collected = filter_rows_by_date_range(collected, date_from=date_from, date_to=date_to)
             _export_mapped_rows(collected, export_file=export_file or EXPORT_FILE)
         return collected
 
@@ -757,6 +765,7 @@ def search_silene_expert_mapped(
             if len(collected) >= safe_limit:
                 break
         collected = collected[:safe_limit]
+        collected = filter_rows_by_date_range(collected, date_from=date_from, date_to=date_to)
         if export_csv:
             _export_mapped_rows(collected, export_file=export_file or EXPORT_FILE)
         return collected
@@ -766,6 +775,7 @@ def search_silene_expert_mapped(
     else:
         rows = search_silene_expert(payload=payload, export_csv=False, include_iucn=False)
     rows = apply_taxon_filters(rows)
+    rows = filter_rows_by_date_range(rows, date_from=date_from, date_to=date_to)
     if export_csv:
         _export_mapped_rows(rows, export_file=export_file or EXPORT_FILE)
     return rows
