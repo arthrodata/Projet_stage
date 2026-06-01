@@ -88,6 +88,36 @@ class TestSileneExpertMappedSearch(unittest.TestCase):
             export_csv=False,
         )
 
+    def test_fetch_all_enriches_iucn_once_after_collecting_pages(self):
+        page_rows = [
+            {
+                "source_bdd": "Silene Expert",
+                "family": "Testudinidae",
+                "genus": "Testudo",
+                "species": "Testudo hermanni",
+            }
+        ]
+        enriched_rows = [{**page_rows[0], "status": "VU", "iucn_status": "VU"}]
+
+        with patch(
+            "Backend.app.services.silene_expert_service.search_silene_expert_mapped",
+            side_effect=[page_rows, []],
+        ) as paged_search, patch(
+            "Backend.app.services.silene_expert_service._enrich_mapped_rows_iucn",
+            return_value=enriched_rows,
+        ) as enrich:
+            result = search_silene_expert_mapped(
+                species="Testudo hermanni",
+                limit=1,
+                fetch_all=True,
+                export_csv=False,
+                include_iucn=True,
+            )
+
+        self.assertEqual(result, enriched_rows)
+        self.assertEqual(enrich.call_count, 1)
+        self.assertEqual(paged_search.call_args_list[0].kwargs["include_iucn"], False)
+
 
 class TestSileneExpertTokenRefresh(unittest.TestCase):
     def test_refresh_on_401_retries_request(self):

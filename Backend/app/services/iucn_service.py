@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 from typing import Any
 
@@ -119,6 +120,33 @@ def get_iucn_enrichment(scientific_name: str | None) -> dict[str, Any]:
 
     genus, species = taxon
     return dict(_get_iucn_enrichment_cached(token, genus, species))
+
+
+def get_iucn_enrichments(scientific_names: list[str], *, max_workers: int = 8) -> dict[str, dict[str, Any]]:
+    """
+    Enrichit une liste de noms en parallele.
+
+    Le cache LRU reste utilise par `get_iucn_enrichment`, donc les gros exports
+    ne refont pas les appels IUCN deja connus.
+    """
+    unique_names = list(dict.fromkeys(str(name or "").strip() for name in scientific_names))
+    unique_names = [name for name in unique_names if name]
+    if not unique_names:
+        return {}
+
+    workers = max(1, min(int(max_workers), len(unique_names)))
+    out: dict[str, dict[str, Any]] = {}
+
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {executor.submit(get_iucn_enrichment, name): name for name in unique_names}
+        for future in as_completed(futures):
+            name = futures[future]
+            try:
+                out[name] = future.result()
+            except Exception:
+                out[name] = _new_result("api_error")
+
+    return out
 
 
 def get_iucn_status(scientific_name: str | None) -> str:

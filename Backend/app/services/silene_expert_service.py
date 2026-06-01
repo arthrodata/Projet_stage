@@ -11,7 +11,7 @@ from typing import Any, Optional
 import pandas as pd
 import requests
 
-from Backend.app.services.iucn_service import IUCN_EMPTY_STATUS, get_iucn_enrichment
+from Backend.app.services.iucn_service import IUCN_EMPTY_STATUS, get_iucn_enrichments
 from Backend.app.utils.date_filters import filter_rows_by_date_range
 
 
@@ -528,11 +528,13 @@ def search_silene_expert(
         species_clean = df["species"].fillna("").astype(str).map(lambda s: s.strip())
         unique_species = species_clean.unique().tolist()
 
-        enrichments = {
-            species: get_iucn_enrichment(species)
-            for species in unique_species
-            if species and species not in {"Non renseigne", "Non renseigne"}
-        }
+        enrichments = get_iucn_enrichments(
+            [
+                species
+                for species in unique_species
+                if species and species not in {"Non renseigne", "Non renseigne"}
+            ]
+        )
 
         def iucn_value(species_name, key):
             return enrichments.get(species_name, {}).get(key)
@@ -602,6 +604,32 @@ def _export_mapped_rows(rows: list[dict[str, Any]], export_file: Path) -> None:
     df.reindex(columns=CSV_EXPORT_COLUMNS).to_csv(export_file, index=False, encoding="utf-8-sig")
 
 
+def _enrich_mapped_rows_iucn(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if not rows:
+        return rows
+
+    species_names = [
+        str(row.get("species") or "").strip()
+        for row in rows
+        if str(row.get("species") or "").strip()
+        and str(row.get("species") or "").strip() != "Non renseigne"
+    ]
+    enrichments = get_iucn_enrichments(species_names)
+
+    for row in rows:
+        species_name = str(row.get("species") or "").strip()
+        enrichment = enrichments.get(species_name, {})
+        status = enrichment.get("iucn_status") or IUCN_EMPTY_STATUS
+        row["iucn_status"] = status
+        row["iucn_lookup_status"] = enrichment.get("iucn_lookup_status") or ""
+        row["iucn_assessment_id"] = enrichment.get("iucn_assessment_id") or ""
+        row["iucn_year"] = enrichment.get("iucn_year") or ""
+        row["iucn_scope"] = enrichment.get("iucn_scope") or ""
+        row["status"] = status
+
+    return rows
+
+
 def search_silene_expert_mapped(
     family: Optional[str] = None,
     genus: Optional[str] = None,
@@ -639,7 +667,7 @@ def search_silene_expert_mapped(
                 batch = search_silene_expert(
                     payload={"cd_ref": cd_ref, "limit": safe_limit, "page": 1},
                     export_csv=False,
-                    **({} if include_iucn else {"include_iucn": False}),
+                    include_iucn=False,
                 )
                 batch = [
                     r
@@ -649,6 +677,8 @@ def search_silene_expert_mapped(
                 collected.extend(batch)
 
             collected = filter_rows_by_date_range(collected, date_from=date_from, date_to=date_to)
+            if include_iucn:
+                collected = _enrich_mapped_rows_iucn(collected)
             if export_csv:
                 _export_mapped_rows(collected, export_file=export_file or EXPORT_FILE)
             return collected
@@ -667,7 +697,7 @@ def search_silene_expert_mapped(
                 page=current_page,
                 export_csv=False,
                 fetch_all=False,
-                include_iucn=include_iucn,
+                include_iucn=False,
             )
             if not batch:
                 break
@@ -682,8 +712,10 @@ def search_silene_expert_mapped(
             if max_pages is not None and pages >= int(max_pages):
                 break
 
+        collected = filter_rows_by_date_range(collected, date_from=date_from, date_to=date_to)
+        if include_iucn:
+            collected = _enrich_mapped_rows_iucn(collected)
         if export_csv:
-            collected = filter_rows_by_date_range(collected, date_from=date_from, date_to=date_to)
             _export_mapped_rows(collected, export_file=export_file or EXPORT_FILE)
         return collected
 
@@ -759,6 +791,7 @@ def search_silene_expert_mapped(
             batch = search_silene_expert(
                 payload={"cd_ref": cd_ref, "limit": safe_limit, "page": 1},
                 export_csv=False,
+                include_iucn=False,
             )
             batch = apply_taxon_filters(batch)
             collected.extend(batch)
@@ -766,6 +799,8 @@ def search_silene_expert_mapped(
                 break
         collected = collected[:safe_limit]
         collected = filter_rows_by_date_range(collected, date_from=date_from, date_to=date_to)
+        if include_iucn:
+            collected = _enrich_mapped_rows_iucn(collected)
         if export_csv:
             _export_mapped_rows(collected, export_file=export_file or EXPORT_FILE)
         return collected

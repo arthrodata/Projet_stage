@@ -141,6 +141,7 @@ def search_gbif_and_silene_expert(
             country=country,
             date_from=date_from,
             date_to=date_to,
+            limit=limit,
             export_csv=False,
             fetch_all=fetch_all,
             include_iucn=include_iucn,

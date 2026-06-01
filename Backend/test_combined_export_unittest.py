@@ -62,6 +62,15 @@ class TestCombinedExport(unittest.TestCase):
                 rows = list(reader)
                 self.assertEqual(len(rows), 2)
 
+    def test_passes_limit_to_both_sources(self):
+        with patch("Backend.app.services.combined_service.search_gbif", return_value=[]) as gbif, patch(
+            "Backend.app.services.combined_service.search_silene_expert_mapped", return_value=[]
+        ) as silene:
+            search_gbif_and_silene_expert(limit=250, export_csv=False)
+
+        self.assertEqual(gbif.call_args.kwargs["limit"], 250)
+        self.assertEqual(silene.call_args.kwargs["limit"], 250)
+
 
 if __name__ == "__main__":
     unittest.main()

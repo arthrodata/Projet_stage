@@ -4,7 +4,7 @@ from datetime import date
 import pandas as pd
 import requests
 
-from Backend.app.services.iucn_service import IUCN_EMPTY_STATUS, get_iucn_enrichment
+from Backend.app.services.iucn_service import IUCN_EMPTY_STATUS, get_iucn_enrichments
 from Backend.app.utils.date_filters import parse_any_date
 
 
@@ -131,10 +131,7 @@ def _format_coordinates(row):
 
 
 def _add_iucn_columns(df):
-    enrichments = {
-        species: get_iucn_enrichment(species)
-        for species in df["species"].fillna("").astype(str).unique()
-    }
+    enrichments = get_iucn_enrichments(df["species"].fillna("").astype(str).unique().tolist())
 
     def value(species, key):
         return enrichments.get(str(species), {}).get(key)
