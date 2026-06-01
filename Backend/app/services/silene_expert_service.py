@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import os
+import threading
+import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
@@ -38,9 +41,149 @@ def _session() -> requests.Session:
     return s
 
 
+def _b64url_decode(segment: str) -> bytes:
+    import base64
+
+    seg = (segment or "").strip()
+    if not seg:
+        return b""
+    pad = "=" * (-len(seg) % 4)
+    return base64.urlsafe_b64decode(seg + pad)
+
+
+def _jwt_claims_no_verify(token: str) -> dict[str, Any]:
+    """
+    Decode un JWT sans verifier la signature (uniquement pour lire exp/iat).
+    Silene Expert fournit un token au format JWT (header.payload.signature).
+    """
+    tok = (token or "").strip()
+    parts = tok.split(".")
+    if len(parts) < 2:
+        return {}
+
+    import json
+
+    claims: dict[str, Any] = {}
+    for segment in (parts[0], parts[1]):
+        try:
+            raw = _b64url_decode(segment)
+            obj = json.loads(raw.decode("utf-8"))
+            if isinstance(obj, dict):
+                claims.update(obj)
+        except Exception:
+            continue
+    return claims
+
+
+@dataclass
+class _SileneTokenCache:
+    token: str | None = None
+    exp_epoch: int | None = None
+
+
+_TOKEN_CACHE = _SileneTokenCache()
+_TOKEN_LOCK = threading.Lock()
+
+
+def _token_is_valid(token: str, *, min_ttl_seconds: int = 120) -> bool:
+    claims = _jwt_claims_no_verify(token)
+    exp = claims.get("exp")
+    try:
+        exp_int = int(exp) if exp is not None else None
+    except (TypeError, ValueError):
+        exp_int = None
+
+    if exp_int is None:
+        return True
+
+    return (exp_int - int(time.time())) > int(min_ttl_seconds)
+
+
+def _login_and_get_token() -> Optional[str]:
+    """
+    Auth Silene Expert :
+    POST https://expert.silene.eu/api/auth/login
+    payload: {login, password, id_application}
+    -> renvoie un cookie `token=...`
+    """
+    login = (os.getenv("SILENE_EXPERT_LOGIN") or "").strip()
+    password = (os.getenv("SILENE_EXPERT_PASSWORD") or "").strip()
+    if not login or not password:
+        return None
+
+    try:
+        app_id = int((os.getenv("SILENE_EXPERT_APP_ID") or "3").strip())
+    except ValueError:
+        app_id = 3
+
+    url = f"{SILENE_EXPERT_BASE_URL}/api/auth/login"
+    payload = {"login": login, "password": password, "id_application": app_id}
+
+    try:
+        r = _session().post(url, json=payload, timeout=30)
+        # 490 = erreur custom (pas d'utilisateur / mauvais mdp, etc.)
+        if r.status_code >= 400:
+            return None
+
+        token = r.cookies.get("token")
+        if token and isinstance(token, str) and token.strip():
+            return token.strip()
+    except requests.RequestException:
+        return None
+
+    return None
+
+
 def _get_token() -> Optional[str]:
-    # 2 noms possibles, pour etre souple
-    return os.getenv("SILENE_EXPERT_TOKEN") or os.getenv("SILENE_TOKEN")
+    """
+    Retourne un token valide si possible.
+
+    Ordre :
+    - cache memoire (si encore valide)
+    - env SILENE_EXPERT_TOKEN/SILENE_TOKEN (si encore valide)
+    - si identifiants fournis : login auto et mise a jour du cache + os.environ
+    """
+    with _TOKEN_LOCK:
+        if _TOKEN_CACHE.token and _token_is_valid(_TOKEN_CACHE.token):
+            return _TOKEN_CACHE.token
+
+    env_token = (os.getenv("SILENE_EXPERT_TOKEN") or os.getenv("SILENE_TOKEN") or "").strip()
+    if env_token and _token_is_valid(env_token):
+        with _TOKEN_LOCK:
+            _TOKEN_CACHE.token = env_token
+        return env_token
+
+    fresh = _login_and_get_token()
+    if not fresh:
+        return env_token or None
+
+    with _TOKEN_LOCK:
+        _TOKEN_CACHE.token = fresh
+        claims = _jwt_claims_no_verify(fresh)
+        exp = claims.get("exp")
+        try:
+            _TOKEN_CACHE.exp_epoch = int(exp) if exp is not None else None
+        except (TypeError, ValueError):
+            _TOKEN_CACHE.exp_epoch = None
+
+    os.environ["SILENE_EXPERT_TOKEN"] = fresh
+    return fresh
+
+
+def _force_refresh_token() -> Optional[str]:
+    fresh = _login_and_get_token()
+    if not fresh:
+        return None
+    with _TOKEN_LOCK:
+        _TOKEN_CACHE.token = fresh
+        claims = _jwt_claims_no_verify(fresh)
+        exp = claims.get("exp")
+        try:
+            _TOKEN_CACHE.exp_epoch = int(exp) if exp is not None else None
+        except (TypeError, ValueError):
+            _TOKEN_CACHE.exp_epoch = None
+    os.environ["SILENE_EXPERT_TOKEN"] = fresh
+    return fresh
 
 
 def _taxhub_lookup_cd_ref(name: str) -> Optional[int]:
@@ -249,14 +392,23 @@ def search_silene_expert(
     url = f"{SILENE_EXPERT_BASE_URL}/api/synthese/for_web"
     params = {"with_areas": "false"}
 
-    # Silene Expert utilise un cookie "token=..."
-    cookies = {"token": token}
+    def do_request(tok: str) -> requests.Response:
+        # Silene Expert utilise un cookie "token=..."
+        return _session().post(
+            url,
+            params=params,
+            json=payload or {},
+            cookies={"token": tok},
+            timeout=30,
+        )
 
     try:
-        r = _session().post(url, params=params, json=payload or {}, cookies=cookies, timeout=30)
+        r = do_request(token)
         if r.status_code in (401, 403):
-            return []
-        if r.status_code == 404:
+            refreshed = _force_refresh_token()
+            if refreshed:
+                r = do_request(refreshed)
+        if r.status_code in (401, 403, 404):
             return []
         r.raise_for_status()
         data = r.json()

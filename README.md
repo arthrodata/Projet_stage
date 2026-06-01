@@ -17,6 +17,7 @@ Le backend charge automatiquement le fichier `.env` à la racine du projet (voir
 2) Renseigner les variables :
 
 - `SILENE_EXPERT_TOKEN` : cookie `token=...` de Silene Expert (obligatoire pour la source Silene Expert)
+- (Recommande) `SILENE_EXPERT_LOGIN` / `SILENE_EXPERT_PASSWORD` : identifiants Silene Expert. Si fournis, le backend regenere automatiquement le cookie `token` quand il expire.
 - `IUCN_TOKEN` : token API IUCN v4 (optionnel ; le CSV n’en a pas besoin, l’API JSON peut enrichir)
 
 ## Lancer le backend
