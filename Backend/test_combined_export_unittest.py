@@ -39,16 +39,33 @@ class TestCombinedExport(unittest.TestCase):
                 "iucn_lookup_status": "ok",
             }
         ]
+        inaturalist_rows = [
+            {
+                "source_bdd": "iNaturalist",
+                "country": "France",
+                "coordinates": "43.2, 5.2",
+                "eventDate": "2024-03-03",
+                "basisOfRecord": "HUMAN_OBSERVATION",
+                "datasetName": "iNaturalist",
+                "family": "Felidae",
+                "genus": "Panthera",
+                "species": "Panthera onca",
+                "iucn_status": "NT",
+                "iucn_lookup_status": "ok",
+            }
+        ]
 
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "combined.csv"
 
             with patch("Backend.app.services.combined_service.search_gbif", return_value=gbif_rows), patch(
                 "Backend.app.services.combined_service.search_silene_expert_mapped", return_value=silene_rows
+            ), patch(
+                "Backend.app.services.combined_service.search_inaturalist", return_value=inaturalist_rows
             ):
                 combined = search_gbif_and_silene_expert(export_file=out, export_csv=True)
 
-            self.assertEqual(len(combined), 2)
+            self.assertEqual(len(combined), 3)
             self.assertTrue(out.exists())
 
             with out.open("r", encoding="utf-8-sig", newline="") as f:
@@ -60,16 +77,17 @@ class TestCombinedExport(unittest.TestCase):
                 self.assertNotIn("iucn_lookup_status", reader.fieldnames)
                 self.assertNotIn("redListCategory", reader.fieldnames)
                 rows = list(reader)
-                self.assertEqual(len(rows), 2)
+                self.assertEqual(len(rows), 3)
 
     def test_passes_limit_to_both_sources(self):
         with patch("Backend.app.services.combined_service.search_gbif", return_value=[]) as gbif, patch(
             "Backend.app.services.combined_service.search_silene_expert_mapped", return_value=[]
-        ) as silene:
+        ) as silene, patch("Backend.app.services.combined_service.search_inaturalist", return_value=[]) as inaturalist:
             search_gbif_and_silene_expert(limit=250, export_csv=False)
 
         self.assertEqual(gbif.call_args.kwargs["limit"], 250)
         self.assertEqual(silene.call_args.kwargs["limit"], 250)
+        self.assertEqual(inaturalist.call_args.kwargs["limit"], 250)
 
 
 if __name__ == "__main__":

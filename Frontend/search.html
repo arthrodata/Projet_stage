@@ -67,7 +67,7 @@
                 <div>
                     <span class="section-kicker">Configuration</span>
                     <h3>Search configuration</h3>
-                    <p>Query GBIF and Silene Expert, enrich records with IUCN status, then export a clean CSV.</p>
+                    <p>Query GBIF, Silene Expert and iNaturalist, enrich records with IUCN status, then export a clean CSV.</p>
                 </div>
                 <div id="message" class="message-pill">Ready to search.</div>
             </div>
@@ -77,7 +77,8 @@
                 <select id="sourceSelect" class="visually-managed-select" aria-label="Source">
                     <option value="gbif" selected>GBIF</option>
                     <option value="silene_expert">Silene Expert</option>
-                    <option value="both">GBIF + Silene Expert</option>
+                    <option value="inaturalist">iNaturalist</option>
+                    <option value="both">GBIF + Silene Expert + iNaturalist</option>
                 </select>
 
                 <div class="source-cards" role="group" aria-label="Source choice">
@@ -95,11 +96,18 @@
                             <small>France records</small>
                         </div>
                     </button>
+                    <button type="button" class="source-card" data-source="inaturalist">
+                        <span class="check">OK</span>
+                        <div>
+                            <strong>iNaturalist</strong>
+                            <small>Research-grade observations</small>
+                        </div>
+                    </button>
                     <button type="button" class="source-card" data-source="both">
                         <span class="check">OK</span>
                         <div>
                             <strong>Combined search</strong>
-                            <small>GBIF + Silene</small>
+                            <small>All sources</small>
                         </div>
                     </button>
                 </div>
@@ -157,8 +165,12 @@
                 <strong>Backend/exports/resultats_silene_expert.csv</strong>
             </article>
             <article class="insight-card">
+                <span>CSV iNaturalist</span>
+                <strong>Backend/exports/resultats_inaturalist.csv</strong>
+            </article>
+            <article class="insight-card">
                 <span>Combined CSV</span>
-                <strong>Backend/exports/resultats_gbif_silene.csv</strong>
+                <strong>Backend/exports/resultats_gbif_silene_inaturalist.csv</strong>
             </article>
         </section>
 

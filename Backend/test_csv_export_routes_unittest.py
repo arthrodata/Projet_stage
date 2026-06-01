@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from Backend.app.routes import combined, search, silene_expert
+from Backend.app.routes import combined, inaturalist, search, silene_expert
 
 
 class TestCsvExportRoutes(unittest.TestCase):
@@ -20,6 +20,12 @@ class TestCsvExportRoutes(unittest.TestCase):
     def test_combined_csv_export_keeps_iucn_status(self):
         with patch("Backend.app.routes.combined.search_gbif_and_silene_expert") as service:
             combined.export_csv(species="Testudo hermanni")
+
+        self.assertTrue(service.call_args.kwargs["include_iucn"])
+
+    def test_inaturalist_csv_export_keeps_iucn_status(self):
+        with patch("Backend.app.routes.inaturalist.search_inaturalist") as service:
+            inaturalist.export_csv(species="Testudo hermanni")
 
         self.assertTrue(service.call_args.kwargs["include_iucn"])
 

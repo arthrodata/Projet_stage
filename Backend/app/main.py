@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from Backend.app.routes.search import router
 from Backend.app.routes.silene import router as silene_router
 from Backend.app.routes.silene_expert import router as silene_expert_router
+from Backend.app.routes.inaturalist import router as inaturalist_router
 from Backend.app.routes.combined import router as combined_router
 from pathlib import Path
 import os
@@ -45,4 +46,5 @@ app.add_middleware(
 app.include_router(router)
 app.include_router(silene_router)
 app.include_router(silene_expert_router)
+app.include_router(inaturalist_router)
 app.include_router(combined_router)

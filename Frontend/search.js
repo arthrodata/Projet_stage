@@ -193,6 +193,12 @@ async function runSearch() {
             const response = await fetch(url);
             if (!response.ok) throw new Error("Silene Expert API error");
             data = await response.json();
+        } else if (source === "inaturalist") {
+            const url = `${API_URL}/inaturalist/search?${params.toString()}`;
+            console.log("Called URL:", url);
+            const response = await fetch(url);
+            if (!response.ok) throw new Error("iNaturalist API error");
+            data = await response.json();
         } else if (source === "both") {
             // Combined endpoint: one call and one server-side CSV.
             const url = `${API_URL}/combined/search?${params.toString()}`;
@@ -282,9 +288,12 @@ exportBtn.addEventListener("click", function () {
     } else if (source === "silene_expert") {
         url = `${API_URL}/silene-expert/search/csv?${params.toString()}`;
         defaultFilename = "silene_expert_results.csv";
+    } else if (source === "inaturalist") {
+        url = `${API_URL}/inaturalist/search/csv?${params.toString()}`;
+        defaultFilename = "inaturalist_results.csv";
     } else {
         url = `${API_URL}/combined/search/csv?${params.toString()}`;
-        defaultFilename = "gbif_silene_results.csv";
+        defaultFilename = "gbif_silene_inaturalist_results.csv";
     }
 
     (async () => {

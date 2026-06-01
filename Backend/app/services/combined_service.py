@@ -8,10 +8,11 @@ from typing import Any, Optional
 import pandas as pd
 
 from Backend.app.services.gbif_service import search_gbif
+from Backend.app.services.inaturalist_service import search_inaturalist
 from Backend.app.services.silene_expert_service import search_silene_expert_mapped
 
 
-COMBINED_EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "resultats_gbif_silene.csv"
+COMBINED_EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "resultats_gbif_silene_inaturalist.csv"
 CSV_EXPORT_COLUMNS = [
     "source_bdd",
     "country",
@@ -128,7 +129,7 @@ def search_gbif_and_silene_expert(
     max_records: int | None = None,
 ) -> list[dict[str, Any]]:
     """
-    Recherche GBIF + Silene Expert en parallele et exporte UN SEUL CSV.
+    Recherche GBIF + Silene Expert + iNaturalist en parallele et exporte UN SEUL CSV.
     """
     effective_export_file = export_file or COMBINED_EXPORT_FILE
 
@@ -164,14 +165,34 @@ def search_gbif_and_silene_expert(
             max_pages=max_pages,
             max_records=max_records,
         )
+        f_inaturalist = executor.submit(
+            search_inaturalist,
+            family=family,
+            genus=genus,
+            species=species,
+            country=country,
+            date_from=date_from,
+            date_to=date_to,
+            limit=limit,
+            page=1 if fetch_all else page,
+            export_csv=False,
+            fetch_all=fetch_all,
+            include_iucn=include_iucn,
+            max_pages=max_pages,
+            max_records=max_records,
+        )
 
         gbif_rows = f_gbif.result()
         silene_rows = f_silene.result()
+        inaturalist_rows = f_inaturalist.result()
 
-    combined = (gbif_rows or []) + (silene_rows or [])
+    combined = (gbif_rows or []) + (silene_rows or []) + (inaturalist_rows or [])
 
     if export_csv:
-        df = pd.concat([_normalize_rows(gbif_rows), _normalize_rows(silene_rows)], ignore_index=True)
+        df = pd.concat(
+            [_normalize_rows(gbif_rows), _normalize_rows(silene_rows), _normalize_rows(inaturalist_rows)],
+            ignore_index=True,
+        )
         effective_export_file.parent.mkdir(parents=True, exist_ok=True)
         df.reindex(columns=CSV_EXPORT_COLUMNS).to_csv(
             effective_export_file,
