@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BioData Explorer — Dashboard</title>
+    <title>BioData Explorer - Dashboard</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,18 +20,18 @@
             <div class="brand-mark">B</div>
             <div>
                 <h1>BioData Explorer</h1>
-                <p>Biological occurrences</p>
+                <p>Occurrences biologiques</p>
             </div>
         </div>
 
-        <nav class="side-nav" aria-label="Main navigation">
+        <nav class="side-nav" aria-label="Navigation principale">
             <a class="nav-item active" href="dashboard.html">
                 <span class="nav-icon">DB</span>
                 Dashboard
             </a>
             <a class="nav-item" href="search.html#searchPanel">
                 <span class="nav-icon">RE</span>
-                Search
+                Recherche
             </a>
         </nav>
 
@@ -49,75 +49,70 @@
             <div class="dash-title">
                 <span class="section-kicker">Dashboard</span>
                 <h2>BioData Explorer</h2>
-                <p class="dash-subtitle">Overview of your latest analyses and exports.</p>
-            </div>
-
-            <div class="dash-search" aria-label="Search (visual)">
-                <span class="dash-search-icon">⌕</span>
-                <input type="search" placeholder="Search the dashboard (visual)" disabled>
+                <p class="dash-subtitle">Vue d'ensemble des dernieres recherches et exports.</p>
             </div>
         </header>
 
-        <section class="dash-cards" aria-label="Stats">
+        <section class="dash-cards" aria-label="Statistiques">
             <article class="dash-card dash-card-blue">
                 <div class="dash-card-head">
-                    <span class="dash-card-title">Connected sources</span>
-                    <div class="dash-card-icon">⛁</div>
+                    <span class="dash-card-title">Sources connectees</span>
+                    <div class="dash-card-icon">SRC</div>
                 </div>
                 <div class="dash-card-value" id="statSources">3</div>
-                <div class="dash-card-meta" id="statSourcesMeta">3 configured</div>
+                <div class="dash-card-meta" id="statSourcesMeta">3 configurees</div>
             </article>
 
             <article class="dash-card dash-card-green">
                 <div class="dash-card-head">
-                    <span class="dash-card-title">Occurrences retrieved</span>
-                    <div class="dash-card-icon">↗</div>
+                    <span class="dash-card-title">Occurrences recuperees</span>
+                    <div class="dash-card-icon">OCC</div>
                 </div>
                 <div class="dash-card-value" id="statOccurrences">0</div>
-                <div class="dash-card-meta" id="statOccurrencesMeta">last search</div>
+                <div class="dash-card-meta" id="statOccurrencesMeta">derniere recherche</div>
             </article>
 
             <article class="dash-card dash-card-violet">
                 <div class="dash-card-head">
-                    <span class="dash-card-title">Species detected</span>
-                    <div class="dash-card-icon">⚗</div>
+                    <span class="dash-card-title">Especes detectees</span>
+                    <div class="dash-card-icon">SP</div>
                 </div>
                 <div class="dash-card-value" id="statSpecies">0</div>
-                <div class="dash-card-meta" id="statSpeciesMeta">unique</div>
+                <div class="dash-card-meta" id="statSpeciesMeta">uniques</div>
             </article>
 
             <article class="dash-card dash-card-orange">
                 <div class="dash-card-head">
-                    <span class="dash-card-title">CSV exports</span>
-                    <div class="dash-card-icon">⎘</div>
+                    <span class="dash-card-title">Exports CSV</span>
+                    <div class="dash-card-icon">CSV</div>
                 </div>
-                <div class="dash-card-value" id="statExports">3</div>
-                <div class="dash-card-meta" id="statExportsMeta">GBIF / Silene / Combined</div>
+                <div class="dash-card-value" id="statExports">4</div>
+                <div class="dash-card-meta" id="statExportsMeta">GBIF / Silene / iNaturalist / Combined</div>
             </article>
         </section>
 
         <section class="panel dash-panel">
             <div class="panel-heading compact">
                 <div>
-                    <span class="section-kicker">Latest results</span>
-                    <h3>Last 5 records</h3>
+                    <span class="section-kicker">Derniers resultats</span>
+                    <h3>5 derniers enregistrements</h3>
                 </div>
-                <div id="dashMessage" class="message-pill neutral">Loading...</div>
+                <div id="dashMessage" class="message-pill neutral">Chargement...</div>
             </div>
 
-            <div class="table-card">
-                <table>
+            <div class="table-card dash-table-card">
+                <table class="dash-table">
                     <thead>
                         <tr>
                             <th>Source</th>
-                            <th>Country</th>
-                            <th>Species</th>
+                            <th>Pays</th>
+                            <th>Espece</th>
                             <th>Date</th>
                         </tr>
                     </thead>
                     <tbody id="lastRowsBody">
                         <tr>
-                            <td colspan="4" class="empty-state">No saved search.</td>
+                            <td colspan="4" class="empty-state">Aucune recherche sauvegardee.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -126,6 +121,6 @@
     </main>
 </div>
 
-<script src="dashboard.js?v=20260528-dashboard"></script>
+<script src="dashboard.js?v=20260604-dashboard"></script>
 </body>
 </html>

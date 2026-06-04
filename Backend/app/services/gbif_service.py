@@ -6,42 +6,18 @@ import requests
 
 from Backend.app.services.iucn_service import IUCN_EMPTY_STATUS, get_iucn_enrichments
 from Backend.app.utils.date_filters import parse_any_date
+from Backend.app.utils.row_normalization import (
+    CSV_EXPORT_COLUMNS,
+    STANDARD_COLUMNS,
+    normalize_dataframe,
+)
 
 
 EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "resultats.csv"
 TARGET_BASIS_OF_RECORD = "HUMAN_OBSERVATION"
 GBIF_SPECIES_MATCH_URL = "https://api.gbif.org/v1/species/match"
 GBIF_COUNTRIES_URL = "https://api.gbif.org/v1/enumeration/country"
-EXPORT_COLUMNS = [
-    "source_bdd",
-    "country",
-    "coordinates",
-    "eventDate",
-    "basisOfRecord",
-    "datasetName",
-    "family",
-    "genus",
-    "species",
-    "status",
-    "iucn_status",
-    "iucn_lookup_status",
-    "iucn_assessment_id",
-    "iucn_year",
-    "iucn_scope",
-    "redListCategory",
-]
-CSV_EXPORT_COLUMNS = [
-    "source_bdd",
-    "country",
-    "coordinates",
-    "eventDate",
-    "basisOfRecord",
-    "datasetName",
-    "family",
-    "genus",
-    "species",
-    "status",
-]
+EXPORT_COLUMNS = STANDARD_COLUMNS
 
 
 def get_country_code(country):
@@ -301,7 +277,7 @@ def search_gbif(
         df["status"] = IUCN_EMPTY_STATUS
         df["redListCategory"] = IUCN_EMPTY_STATUS
     df["source_bdd"] = "GBIF"
-    df = df.reindex(columns=EXPORT_COLUMNS).fillna("Non renseigne")
+    df = normalize_dataframe(df, columns=EXPORT_COLUMNS)
 
     if export_csv:
         effective_export_file.parent.mkdir(parents=True, exist_ok=True)

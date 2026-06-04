@@ -55,13 +55,15 @@ class TestINaturalistSearch(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["source_bdd"], "iNaturalist")
         self.assertEqual(rows[0]["country"], "France")
-        self.assertEqual(rows[0]["coordinates"], "43.0, 5.0")
+        self.assertEqual(rows[0]["coordinates"], "43, 5")
         self.assertEqual(rows[0]["eventDate"], "2024-05-01")
         self.assertEqual(rows[0]["family"], "Testudinidae")
         self.assertEqual(rows[0]["genus"], "Testudo")
         self.assertEqual(rows[0]["species"], "Testudo hermanni")
         self.assertEqual(rows[0]["quality_grade"], "needs_id")
         self.assertEqual(rows[0]["status"], "VU")
+        self.assertEqual(rows[0]["iucn_status"], "VU")
+        self.assertIn("redListCategory", rows[0])
 
     def test_exports_csv(self):
         payload = {

@@ -39,10 +39,6 @@
                 <span class="nav-icon">RS</span>
                 Results
             </a>
-            <a class="nav-item" href="#exportsPanel">
-                <span class="nav-icon">CSV</span>
-                CSV exports
-            </a>
         </nav>
 
         <div class="api-card">
@@ -155,44 +151,15 @@
                     </select>
                 </div>
 
-                <div class="field">
-                    <label for="resultLimit">Résultats par page</label>
-                    <input type="number" id="resultLimit" min="10" max="300" step="10" value="100">
-                </div>
-
-                <div class="field">
-                    <label for="maxPages">Pages export max</label>
-                    <input type="number" id="maxPages" min="1" max="200" step="1" value="50">
-                </div>
-
                 <div class="field action-field">
                     <label>Actions</label>
                     <div class="button-row">
                         <button type="button" id="searchBtn" class="btn-primary">Run analysis</button>
                         <button type="button" id="resetBtn" class="btn-muted">Reset</button>
+                        <button type="button" id="exportBtn" class="btn-export">Download CSV</button>
                     </div>
-                    <button type="button" id="exportBtn" class="btn-export">Download CSV</button>
                 </div>
             </div>
-        </section>
-
-        <section id="exportsPanel" class="insight-row">
-            <article class="insight-card">
-                <span>CSV GBIF</span>
-                <strong>Backend/exports/resultats.csv</strong>
-            </article>
-            <article class="insight-card">
-                <span>CSV Silene</span>
-                <strong>Backend/exports/resultats_silene_expert.csv</strong>
-            </article>
-            <article class="insight-card">
-                <span>CSV iNaturalist</span>
-                <strong>Backend/exports/resultats_inaturalist.csv</strong>
-            </article>
-            <article class="insight-card">
-                <span>Combined CSV</span>
-                <strong>Backend/exports/resultats_gbif_silene_inaturalist.csv</strong>
-            </article>
         </section>
 
         <section id="resultsPanel" class="panel results-panel">

@@ -13,6 +13,7 @@ import requests
 
 from Backend.app.services.iucn_service import IUCN_EMPTY_STATUS, get_iucn_enrichments
 from Backend.app.utils.date_filters import filter_rows_by_date_range
+from Backend.app.utils.row_normalization import CSV_EXPORT_COLUMNS, normalize_dataframe, normalize_rows
 
 
 # Service Silene Expert
@@ -23,18 +24,15 @@ SILENE_EXPERT_BASE_URL = "https://expert.silene.eu"
 TAXHUB_API_BASE_URL = "https://taxhub.silene.eu/api"
 EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "resultats_silene_expert.csv"
 DEFAULT_SILENE_EXPERT_APP_ID = "3"
-CSV_EXPORT_COLUMNS = [
-    "source_bdd",
-    "country",
-    "coordinates",
-    "eventDate",
-    "basisOfRecord",
-    "datasetName",
-    "family",
-    "genus",
-    "species",
-    "status",
-]
+
+
+def _normalize_silene_rows(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
+    prepared: list[dict[str, Any]] = []
+    for row in rows:
+        item = dict(row)
+        item.setdefault("source_bdd", "Silene Expert")
+        prepared.append(item)
+    return normalize_rows(prepared)
 
 
 def _session() -> requests.Session:
@@ -559,7 +557,7 @@ def search_silene_expert(
         df["iucn_scope"] = ""
         df["status"] = IUCN_EMPTY_STATUS
 
-    df = df.fillna("Non renseigne")
+    df = normalize_dataframe(df)
 
     # Mettre source_bdd en premiere colonne dans le CSV
     ordered_cols = ["source_bdd"] + [c for c in df.columns if c != "source_bdd"]
@@ -583,7 +581,7 @@ def _export_mapped_rows(rows: list[dict[str, Any]], export_file: Path) -> None:
     a besoin de desactiver l'export pendant des appels intermediaires.
     """
     export_file.parent.mkdir(parents=True, exist_ok=True)
-    df = pd.DataFrame(rows)
+    df = pd.DataFrame(_normalize_silene_rows(rows))
     if df.empty:
         pd.DataFrame(
             columns=CSV_EXPORT_COLUMNS
@@ -681,7 +679,7 @@ def search_silene_expert_mapped(
                 collected = _enrich_mapped_rows_iucn(collected)
             if export_csv:
                 _export_mapped_rows(collected, export_file=export_file or EXPORT_FILE)
-            return collected
+            return _normalize_silene_rows(collected)
 
         current_page = 1
         pages = 0
@@ -717,7 +715,7 @@ def search_silene_expert_mapped(
             collected = _enrich_mapped_rows_iucn(collected)
         if export_csv:
             _export_mapped_rows(collected, export_file=export_file or EXPORT_FILE)
-        return collected
+        return _normalize_silene_rows(collected)
 
     payload: dict[str, Any] = {"page": safe_page, "limit": safe_limit}
 
@@ -803,7 +801,7 @@ def search_silene_expert_mapped(
             collected = _enrich_mapped_rows_iucn(collected)
         if export_csv:
             _export_mapped_rows(collected, export_file=export_file or EXPORT_FILE)
-        return collected
+        return _normalize_silene_rows(collected)
 
     if include_iucn:
         rows = search_silene_expert(payload=payload, export_csv=False)
@@ -813,4 +811,4 @@ def search_silene_expert_mapped(
     rows = filter_rows_by_date_range(rows, date_from=date_from, date_to=date_to)
     if export_csv:
         _export_mapped_rows(rows, export_file=export_file or EXPORT_FILE)
-    return rows
+    return _normalize_silene_rows(rows)

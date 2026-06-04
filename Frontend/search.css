@@ -353,7 +353,6 @@ select {
 .action-field {
     grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: 1fr 200px;
     gap: 12px;
     align-content: start;
     align-items: end;
@@ -377,7 +376,7 @@ select {
 }
 
 .btn-primary {
-    flex: 1 1 auto;
+    flex: 0 0 150px;
     color: #fff;
     background: linear-gradient(135deg, #0284c7, #0f766e);
     box-shadow: 0 12px 24px rgba(2, 132, 199, 0.24);
@@ -390,8 +389,7 @@ select {
 }
 
 .btn-export {
-    width: 100%;
-    min-width: 0;
+    flex: 0 0 180px;
     color: #064e3b;
     background: #d1fae5;
 }
@@ -515,9 +513,6 @@ tbody tr:hover {
         grid-template-columns: 1fr;
     }
 
-    .action-field {
-        grid-template-columns: 1fr;
-    }
 }
 
 @media (max-width: 760px) {

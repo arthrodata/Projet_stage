@@ -1,5 +1,3 @@
-console.log("dashboard.js loaded");
-
 const STORAGE_KEY = "biodiversity:last_search_v1";
 
 function safeParseJson(raw) {
@@ -13,7 +11,7 @@ function safeParseJson(raw) {
 function formatNumber(value) {
     const n = Number(value || 0);
     if (!Number.isFinite(n)) return "0";
-    return n.toLocaleString("en-US");
+    return n.toLocaleString("fr-FR");
 }
 
 function pick(item, keys) {
@@ -26,12 +24,20 @@ function pick(item, keys) {
 
 function uniqNonEmpty(values) {
     const out = new Set();
-    for (const v of values || []) {
-        const s = String(v || "").trim();
-        const lower = s.toLowerCase();
-        if (s !== "" && lower !== "not provided" && lower !== "non renseigne") out.add(s);
+    for (const value of values || []) {
+        const text = String(value || "").trim();
+        const lower = text.toLowerCase();
+        if (text !== "" && lower !== "not provided" && lower !== "non renseigne") {
+            out.add(text);
+        }
     }
     return out;
+}
+
+function appendCell(row, value) {
+    const td = document.createElement("td");
+    td.textContent = value;
+    row.appendChild(td);
 }
 
 function renderLastRows(rows) {
@@ -41,18 +47,22 @@ function renderLastRows(rows) {
     tbody.innerHTML = "";
 
     if (!Array.isArray(rows) || rows.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="empty-state">No saved search</td></tr>`;
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 4;
+        td.className = "empty-state";
+        td.textContent = "Aucune recherche sauvegardee.";
+        tr.appendChild(td);
+        tbody.appendChild(tr);
         return;
     }
 
     rows.forEach((item) => {
         const tr = document.createElement("tr");
-        tr.innerHTML = `
-            <td>${pick(item, ["source_bdd"]) || "Not provided"}</td>
-            <td>${pick(item, ["country"]) || "Not provided"}</td>
-            <td>${pick(item, ["species"]) || "Not provided"}</td>
-            <td>${pick(item, ["eventDate"]) || "Not provided"}</td>
-        `;
+        appendCell(tr, pick(item, ["source_bdd"]) || "Non renseigne");
+        appendCell(tr, pick(item, ["country"]) || "Non renseigne");
+        appendCell(tr, pick(item, ["species"]) || "Non renseigne");
+        appendCell(tr, pick(item, ["eventDate"]) || "Non renseigne");
         tbody.appendChild(tr);
     });
 }
@@ -64,48 +74,48 @@ function setText(id, value) {
 
 function initDashboard() {
     const msg = document.getElementById("dashMessage");
+
     try {
         if (window.location && window.location.protocol === "file:") {
-            if (msg) msg.textContent = "Open via a local server (http://...) to access saved searches.";
+            if (msg) msg.textContent = "Ouvre la page via http://127.0.0.1:8000 pour lire la derniere recherche.";
         } else if (msg) {
-            msg.textContent = "Loading...";
+            msg.textContent = "Chargement...";
         }
 
         const raw = localStorage.getItem(STORAGE_KEY);
         const saved = raw ? safeParseJson(raw) : null;
         const data = saved && Array.isArray(saved.data) ? saved.data : [];
 
-        // Defaults if no saved search
         const connectedSources = 3;
-        const csvExports = 3;
+        const csvExports = 4;
 
-        const occurrences = Array.isArray(data) ? data.length : 0;
-        const uniqueSpecies = uniqNonEmpty((data || []).map((it) => it && it.species)).size;
-        const detectedSources = uniqNonEmpty((data || []).map((it) => it && it.source_bdd)).size;
+        const occurrences = data.length;
+        const uniqueSpecies = uniqNonEmpty(data.map((item) => item && item.species)).size;
+        const detectedSources = uniqNonEmpty(data.map((item) => item && item.source_bdd)).size;
 
         setText("statSources", String(connectedSources));
         setText("statExports", String(csvExports));
         setText("statOccurrences", formatNumber(occurrences));
         setText("statSpecies", formatNumber(uniqueSpecies));
-
         setText(
             "statSourcesMeta",
-            occurrences > 0 ? `${formatNumber(detectedSources)} source(s) detected` : "3 configured"
+            occurrences > 0 ? `${formatNumber(detectedSources)} source(s) detectee(s)` : "3 configurees"
         );
 
         if (!saved || !Array.isArray(saved.data)) {
-            if (msg && !(window.location && window.location.protocol === "file:")) msg.textContent = "No saved search.";
+            if (msg && !(window.location && window.location.protocol === "file:")) {
+                msg.textContent = "Aucune recherche sauvegardee.";
+            }
             renderLastRows([]);
             return;
         }
 
-        if (msg) msg.textContent = "Last search loaded";
+        if (msg) msg.textContent = "Derniere recherche chargee";
 
-        const lastFive = data.slice(-5).reverse();
-        renderLastRows(lastFive);
+        renderLastRows(data.slice(-5).reverse());
     } catch (error) {
         console.error(error);
-        if (msg) msg.textContent = "Dashboard error (check console).";
+        if (msg) msg.textContent = "Erreur dashboard.";
         renderLastRows([]);
     }
 }

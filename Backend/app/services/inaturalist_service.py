@@ -10,24 +10,12 @@ import requests
 
 from Backend.app.services.iucn_service import IUCN_EMPTY_STATUS, get_iucn_enrichments
 from Backend.app.utils.date_filters import filter_rows_by_date_range
+from Backend.app.utils.row_normalization import CSV_EXPORT_COLUMNS, normalize_rows
 
 
 INATURALIST_API_BASE_URL = "https://api.inaturalist.org/v1"
 EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "resultats_inaturalist.csv"
 DEFAULT_QUALITY_GRADE = "research,needs_id,casual"
-CSV_EXPORT_COLUMNS = [
-    "source_bdd",
-    "country",
-    "coordinates",
-    "eventDate",
-    "basisOfRecord",
-    "datasetName",
-    "family",
-    "genus",
-    "species",
-    "quality_grade",
-    "status",
-]
 
 
 def _session() -> requests.Session:
@@ -271,7 +259,7 @@ def _enrich_iucn(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def _export_rows(rows: list[dict[str, Any]], export_file: Path) -> None:
     export_file.parent.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(rows).reindex(columns=CSV_EXPORT_COLUMNS).to_csv(
+    pd.DataFrame(normalize_rows(rows, columns=CSV_EXPORT_COLUMNS)).reindex(columns=CSV_EXPORT_COLUMNS).to_csv(
         export_file,
         index=False,
         encoding="utf-8-sig",
@@ -378,4 +366,4 @@ def search_inaturalist(
     if export_csv:
         _export_rows(rows, export_file or EXPORT_FILE)
 
-    return rows
+    return normalize_rows(rows)

@@ -2,6 +2,8 @@ console.log("search.js loaded");
 
 const API_URL = "http://127.0.0.1:8000";
 const STORAGE_KEY = "biodiversity:last_search_v1";
+const DEFAULT_RESULT_LIMIT = "100";
+const DEFAULT_MAX_EXPORT_PAGES = "50";
 
 const searchBtn = document.getElementById("searchBtn");
 const resetBtn = document.getElementById("resetBtn");
@@ -21,8 +23,6 @@ const countryInput = document.getElementById("country");
 const dateFromInput = document.getElementById("dateFrom");
 const dateToInput = document.getElementById("dateTo");
 const qualityGradeInput = document.getElementById("qualityGrade");
-const resultLimitInput = document.getElementById("resultLimit");
-const maxPagesInput = document.getElementById("maxPages");
 const sourceHint = document.getElementById("sourceHint");
 
 function removeLegacySearchWidget() {
@@ -56,8 +56,8 @@ function getQueryParams() {
     const dateFrom = (dateFromInput && dateFromInput.value ? dateFromInput.value : "").trim();
     const dateTo = (dateToInput && dateToInput.value ? dateToInput.value : "").trim();
     const qualityGrade = (qualityGradeInput && qualityGradeInput.value ? qualityGradeInput.value : "").trim();
-    const resultLimit = (resultLimitInput && resultLimitInput.value ? resultLimitInput.value : "100").trim();
-    const maxPages = (maxPagesInput && maxPagesInput.value ? maxPagesInput.value : "50").trim();
+    const resultLimit = DEFAULT_RESULT_LIMIT;
+    const maxPages = DEFAULT_MAX_EXPORT_PAGES;
 
     const params = new URLSearchParams();
     if (family !== "") params.append("family", family);
@@ -155,8 +155,6 @@ function restoreLastSearch() {
             if (dateFromInput) dateFromInput.value = saved.params.dateFrom || "";
             if (dateToInput) dateToInput.value = saved.params.dateTo || "";
             if (qualityGradeInput) qualityGradeInput.value = saved.params.qualityGrade || "";
-            if (resultLimitInput) resultLimitInput.value = saved.params.resultLimit || "100";
-            if (maxPagesInput) maxPagesInput.value = saved.params.maxPages || "50";
             syncSourceCards();
         }
 
@@ -195,7 +193,7 @@ function syncSourceCards() {
 }
 
 async function runSearch() {
-    const { source, family, species, genus, country, dateFrom, dateTo, qualityGrade, resultLimit, maxPages, params } = getQueryParams();
+    const { source, family, species, genus, country, dateFrom, dateTo, qualityGrade, params } = getQueryParams();
 
     if (dateFrom && dateTo && dateFrom > dateTo) {
         setMessage("Error: date_from must be before date_to.", "error");
@@ -240,7 +238,7 @@ async function runSearch() {
         data = applyFamilyFilterClientSide(data, family);
 
         renderResults(data);
-        saveLastSearch({ params: { source, family, species, genus, country, dateFrom, dateTo, qualityGrade, resultLimit, maxPages }, data });
+        saveLastSearch({ params: { source, family, species, genus, country, dateFrom, dateTo, qualityGrade }, data });
 
         setMessage("Search completed.", "success");
     } catch (error) {
@@ -265,7 +263,7 @@ if (sourceSelect) {
 
 searchBtn.addEventListener("click", runSearch);
 
-[familyInput, speciesInput, genusInput, countryInput, dateFromInput, dateToInput, qualityGradeInput, resultLimitInput, maxPagesInput].filter(Boolean).forEach((input) => {
+[familyInput, speciesInput, genusInput, countryInput, dateFromInput, dateToInput, qualityGradeInput].filter(Boolean).forEach((input) => {
     input.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
             e.preventDefault();
@@ -283,8 +281,6 @@ resetBtn.addEventListener("click", function () {
     if (dateFromInput) dateFromInput.value = "";
     if (dateToInput) dateToInput.value = "";
     if (qualityGradeInput) qualityGradeInput.value = "";
-    if (resultLimitInput) resultLimitInput.value = "100";
-    if (maxPagesInput) maxPagesInput.value = "50";
 
     setMessage("Ready to search.", "neutral");
     countText.textContent = "No search started.";

@@ -54,6 +54,50 @@ class TestSileneExpertAuth(unittest.TestCase):
 
 
 class TestSileneExpertMappedSearch(unittest.TestCase):
+    def test_direct_search_adds_iucn_status(self):
+        class FakeResponse:
+            status_code = 200
+
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {
+                    "features": [
+                        {
+                            "geometry": {"coordinates": [5.0, 43.0]},
+                            "properties": {
+                                "observations": [
+                                    {
+                                        "nom_valide": "Testudo hermanni",
+                                        "jdd_nom": "JDD",
+                                        "date_debut": "2024-05-01",
+                                        "famille": "Testudinidae",
+                                    }
+                                ]
+                            },
+                        }
+                    ]
+                }
+
+        class FakeSession:
+            def post(self, *args, **kwargs):
+                return FakeResponse()
+
+        with patch("Backend.app.services.silene_expert_service._get_token", return_value="token"), patch(
+            "Backend.app.services.silene_expert_service._session", return_value=FakeSession()
+        ), patch(
+            "Backend.app.services.silene_expert_service.get_iucn_enrichments",
+            return_value={"Testudo hermanni": {"iucn_status": "EN", "iucn_lookup_status": "ok"}},
+        ) as enrich:
+            rows = search_silene_expert(payload={"limit": 1}, export_csv=False)
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["species"], "Testudo hermanni")
+        self.assertEqual(rows[0]["iucn_status"], "EN")
+        self.assertEqual(rows[0]["status"], "EN")
+        enrich.assert_called_once()
+
     def test_species_cd_ref_has_priority_over_genus_cd_ref(self):
         rows = [
             {
@@ -81,7 +125,15 @@ class TestSileneExpertMappedSearch(unittest.TestCase):
                 export_csv=False,
             )
 
-        self.assertEqual(result, rows)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["source_bdd"], "Silene Expert")
+        self.assertEqual(result[0]["family"], "Testudinidae")
+        self.assertEqual(result[0]["genus"], "Testudo")
+        self.assertEqual(result[0]["species"], "Testudo hermanni")
+        self.assertEqual(result[0]["status"], "VU")
+        self.assertIn("country", result[0])
+        self.assertIn("coordinates", result[0])
+        self.assertIn("eventDate", result[0])
         cd_ref_lookup.assert_called_once_with("Testudo hermanni")
         silene_search.assert_called_once_with(
             payload={"page": 1, "limit": 2, "cd_ref": 77433},
@@ -114,7 +166,15 @@ class TestSileneExpertMappedSearch(unittest.TestCase):
                 include_iucn=True,
             )
 
-        self.assertEqual(result, enriched_rows)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["source_bdd"], "Silene Expert")
+        self.assertEqual(result[0]["family"], "Testudinidae")
+        self.assertEqual(result[0]["genus"], "Testudo")
+        self.assertEqual(result[0]["species"], "Testudo hermanni")
+        self.assertEqual(result[0]["status"], "VU")
+        self.assertIn("country", result[0])
+        self.assertIn("coordinates", result[0])
+        self.assertIn("eventDate", result[0])
         self.assertEqual(enrich.call_count, 1)
         self.assertEqual(paged_search.call_args_list[0].kwargs["include_iucn"], False)
 

@@ -10,110 +10,15 @@ import pandas as pd
 from Backend.app.services.gbif_service import search_gbif
 from Backend.app.services.inaturalist_service import search_inaturalist
 from Backend.app.services.silene_expert_service import search_silene_expert_mapped
+from Backend.app.utils.row_normalization import CSV_EXPORT_COLUMNS, STANDARD_COLUMNS, normalize_dataframe, normalize_rows
 
 
 COMBINED_EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "resultats_gbif_silene_inaturalist.csv"
-CSV_EXPORT_COLUMNS = [
-    "source_bdd",
-    "country",
-    "coordinates",
-    "eventDate",
-    "basisOfRecord",
-    "datasetName",
-    "family",
-    "genus",
-    "species",
-    "quality_grade",
-    "status",
-]
-
-
 def _normalize_rows(rows: list[dict[str, Any]]) -> pd.DataFrame:
     df = pd.DataFrame(rows or [])
     if df.empty:
-        return pd.DataFrame(
-            columns=[
-                "source_bdd",
-                "country",
-                "coordinates",
-                "eventDate",
-                "basisOfRecord",
-                "datasetName",
-                "family",
-                "genus",
-                "species",
-                "quality_grade",
-                "status",
-                "iucn_status",
-                "iucn_lookup_status",
-                "iucn_assessment_id",
-                "iucn_year",
-                "iucn_scope",
-                "redListCategory",
-            ]
-        )
-
-    if "status" not in df.columns:
-        if "iucn_status" in df.columns:
-            df["status"] = df["iucn_status"]
-        elif "redListCategory" in df.columns:
-            df["status"] = df["redListCategory"]
-        else:
-            df["status"] = ""
-
-    if "iucn_status" not in df.columns:
-        df["iucn_status"] = ""
-    if "iucn_lookup_status" not in df.columns:
-        df["iucn_lookup_status"] = ""
-    if "iucn_assessment_id" not in df.columns:
-        df["iucn_assessment_id"] = ""
-    if "iucn_year" not in df.columns:
-        df["iucn_year"] = ""
-    if "iucn_scope" not in df.columns:
-        df["iucn_scope"] = ""
-    if "redListCategory" not in df.columns:
-        df["redListCategory"] = ""
-    if "quality_grade" not in df.columns:
-        df["quality_grade"] = ""
-
-    for col in (
-        "source_bdd",
-        "country",
-        "coordinates",
-        "eventDate",
-        "basisOfRecord",
-        "datasetName",
-        "family",
-        "genus",
-        "species",
-    ):
-        if col not in df.columns:
-            df[col] = ""
-
-    # Normalisation type/string
-    for col in df.columns:
-        df[col] = df[col].fillna("").astype(str)
-
-    ordered_cols = [
-        "source_bdd",
-        "country",
-        "coordinates",
-        "eventDate",
-        "basisOfRecord",
-        "datasetName",
-        "family",
-        "genus",
-        "species",
-        "quality_grade",
-        "status",
-        "iucn_status",
-        "iucn_lookup_status",
-        "iucn_assessment_id",
-        "iucn_year",
-        "iucn_scope",
-        "redListCategory",
-    ]
-    return df.reindex(columns=ordered_cols)
+        return pd.DataFrame(columns=STANDARD_COLUMNS)
+    return normalize_dataframe(df, columns=STANDARD_COLUMNS)
 
 
 def search_gbif_and_silene_expert(
@@ -193,7 +98,7 @@ def search_gbif_and_silene_expert(
         silene_rows = f_silene.result()
         inaturalist_rows = f_inaturalist.result()
 
-    combined = (gbif_rows or []) + (silene_rows or []) + (inaturalist_rows or [])
+    combined = normalize_rows((gbif_rows or []) + (silene_rows or []) + (inaturalist_rows or []))
 
     if export_csv:
         df = pd.concat(
