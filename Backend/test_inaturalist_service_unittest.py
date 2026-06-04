@@ -15,6 +15,7 @@ class TestINaturalistSearch(unittest.TestCase):
                     "observed_on_details": {"date": "2024-05-01"},
                     "place_guess": "Paris, France",
                     "place_ids": [1, 2],
+                    "quality_grade": "needs_id",
                     "geojson": {"coordinates": [5.0, 43.0]},
                     "taxon": {
                         "id": 1,
@@ -59,6 +60,7 @@ class TestINaturalistSearch(unittest.TestCase):
         self.assertEqual(rows[0]["family"], "Testudinidae")
         self.assertEqual(rows[0]["genus"], "Testudo")
         self.assertEqual(rows[0]["species"], "Testudo hermanni")
+        self.assertEqual(rows[0]["quality_grade"], "needs_id")
         self.assertEqual(rows[0]["status"], "VU")
 
     def test_exports_csv(self):
@@ -67,6 +69,7 @@ class TestINaturalistSearch(unittest.TestCase):
                 {
                     "observed_on": "2024-05-01",
                     "place_guess": "France",
+                    "quality_grade": "research",
                     "taxon": {"rank": "species", "name": "Testudo hermanni"},
                 }
             ]
@@ -93,7 +96,33 @@ class TestINaturalistSearch(unittest.TestCase):
             search_inaturalist(species="Testudo hermanni", export_csv=True, export_file=out)
 
             self.assertTrue(out.exists())
-            self.assertIn("iNaturalist", out.read_text(encoding="utf-8-sig"))
+            content = out.read_text(encoding="utf-8-sig")
+            self.assertIn("quality_grade", content)
+            self.assertIn("research", content)
+
+    def test_sends_quality_grade_to_api(self):
+        payload = {"results": []}
+
+        class FakeResponse:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return payload
+
+        class FakeSession:
+            def __init__(self):
+                self.params = None
+
+            def get(self, *args, **kwargs):
+                self.params = kwargs.get("params")
+                return FakeResponse()
+
+        session = FakeSession()
+        with patch("Backend.app.services.inaturalist_service._session", return_value=session):
+            search_inaturalist(species="Testudo hermanni", quality_grade="research,needs_id", export_csv=False)
+
+        self.assertEqual(session.params["quality_grade"], "research,needs_id")
 
 
 if __name__ == "__main__":

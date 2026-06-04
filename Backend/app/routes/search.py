@@ -15,6 +15,8 @@ def search(
     country: str = None,
     date_from: str = None,
     date_to: str = None,
+    limit: int = 100,
+    page: int = 1,
 ):
     try:
         start_date, end_date = parse_query_date_range(date_from, date_to)
@@ -28,6 +30,8 @@ def search(
         country=country,
         date_from=start_date,
         date_to=end_date,
+        limit=limit,
+        page=page,
         export_csv=True,
     )
 

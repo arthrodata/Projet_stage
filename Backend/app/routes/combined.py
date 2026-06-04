@@ -15,6 +15,7 @@ def search(
     country: str = None,
     date_from: str = None,
     date_to: str = None,
+    quality_grade: str = None,
     limit: int = 100,
     page: int = 1,
 ):
@@ -29,6 +30,7 @@ def search(
         country=country,
         date_from=start_date,
         date_to=end_date,
+        quality_grade=quality_grade,
         limit=limit,
         page=page,
         export_csv=True,
@@ -43,6 +45,7 @@ def export_csv(
     country: str = None,
     date_from: str = None,
     date_to: str = None,
+    quality_grade: str = None,
     limit: int = 200,
     max_pages: int = 50,
 ):
@@ -62,6 +65,7 @@ def export_csv(
         country=country,
         date_from=start_date,
         date_to=end_date,
+        quality_grade=quality_grade,
         limit=limit,
         page=1,
         fetch_all=True,

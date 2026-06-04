@@ -83,11 +83,14 @@ class TestCombinedExport(unittest.TestCase):
         with patch("Backend.app.services.combined_service.search_gbif", return_value=[]) as gbif, patch(
             "Backend.app.services.combined_service.search_silene_expert_mapped", return_value=[]
         ) as silene, patch("Backend.app.services.combined_service.search_inaturalist", return_value=[]) as inaturalist:
-            search_gbif_and_silene_expert(limit=250, export_csv=False)
+            search_gbif_and_silene_expert(limit=250, quality_grade="research,needs_id", export_csv=False)
 
         self.assertEqual(gbif.call_args.kwargs["limit"], 250)
         self.assertEqual(silene.call_args.kwargs["limit"], 250)
         self.assertEqual(inaturalist.call_args.kwargs["limit"], 250)
+        self.assertEqual(inaturalist.call_args.kwargs["quality_grade"], "research,needs_id")
+        self.assertNotIn("quality_grade", gbif.call_args.kwargs)
+        self.assertNotIn("quality_grade", silene.call_args.kwargs)
 
 
 if __name__ == "__main__":

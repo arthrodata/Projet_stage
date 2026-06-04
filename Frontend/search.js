@@ -20,6 +20,10 @@ const genusInput = document.getElementById("genus");
 const countryInput = document.getElementById("country");
 const dateFromInput = document.getElementById("dateFrom");
 const dateToInput = document.getElementById("dateTo");
+const qualityGradeInput = document.getElementById("qualityGrade");
+const resultLimitInput = document.getElementById("resultLimit");
+const maxPagesInput = document.getElementById("maxPages");
+const sourceHint = document.getElementById("sourceHint");
 
 function removeLegacySearchWidget() {
     const legacyInput = document.querySelector('input[placeholder^="Search species"]');
@@ -51,6 +55,9 @@ function getQueryParams() {
     const country = countryInput.value.trim();
     const dateFrom = (dateFromInput && dateFromInput.value ? dateFromInput.value : "").trim();
     const dateTo = (dateToInput && dateToInput.value ? dateToInput.value : "").trim();
+    const qualityGrade = (qualityGradeInput && qualityGradeInput.value ? qualityGradeInput.value : "").trim();
+    const resultLimit = (resultLimitInput && resultLimitInput.value ? resultLimitInput.value : "100").trim();
+    const maxPages = (maxPagesInput && maxPagesInput.value ? maxPagesInput.value : "50").trim();
 
     const params = new URLSearchParams();
     if (family !== "") params.append("family", family);
@@ -59,8 +66,12 @@ function getQueryParams() {
     if (country !== "") params.append("country", country);
     if (dateFrom !== "") params.append("date_from", dateFrom);
     if (dateTo !== "") params.append("date_to", dateTo);
+    if (resultLimit !== "") params.append("limit", resultLimit);
+    if ((source === "inaturalist" || source === "both") && qualityGrade !== "") {
+        params.append("quality_grade", qualityGrade);
+    }
 
-    return { source, family, species, genus, country, dateFrom, dateTo, params };
+    return { source, family, species, genus, country, dateFrom, dateTo, qualityGrade, resultLimit, maxPages, params };
 }
 
 function renderResults(data) {
@@ -70,7 +81,7 @@ function renderResults(data) {
         countText.textContent = "0 result found.";
         resultsBody.innerHTML = `
             <tr>
-                <td colspan="10" class="empty-state">
+                <td colspan="11" class="empty-state">
                     No results found.
                 </td>
             </tr>
@@ -87,6 +98,7 @@ function renderResults(data) {
 
     firstTen.forEach(function (item) {
         const row = document.createElement("tr");
+        const qualityGrade = item.quality_grade || (item.source_bdd === "iNaturalist" ? "Not provided" : "Not applicable");
         row.innerHTML = `
             <td>${item.source_bdd || "Not provided"}</td>
             <td>${item.country || "Not provided"}</td>
@@ -97,6 +109,7 @@ function renderResults(data) {
             <td>${item.family || "Not provided"}</td>
             <td>${item.genus || "Not provided"}</td>
             <td>${item.species || "Not provided"}</td>
+            <td><span class="quality-badge">${qualityGrade}</span></td>
             <td>${getIucnValue(item)}</td>
         `;
         resultsBody.appendChild(row);
@@ -141,6 +154,9 @@ function restoreLastSearch() {
             countryInput.value = saved.params.country || "";
             if (dateFromInput) dateFromInput.value = saved.params.dateFrom || "";
             if (dateToInput) dateToInput.value = saved.params.dateTo || "";
+            if (qualityGradeInput) qualityGradeInput.value = saved.params.qualityGrade || "";
+            if (resultLimitInput) resultLimitInput.value = saved.params.resultLimit || "100";
+            if (maxPagesInput) maxPagesInput.value = saved.params.maxPages || "50";
             syncSourceCards();
         }
 
@@ -164,10 +180,22 @@ function syncSourceCards() {
     sourceCards.forEach((card) => {
         card.classList.toggle("active", card.dataset.source === activeSource);
     });
+    if (qualityGradeInput) {
+        qualityGradeInput.disabled = activeSource !== "inaturalist" && activeSource !== "both";
+    }
+    if (sourceHint) {
+        const labels = {
+            gbif: "GBIF occurrence search with standardized CSV export.",
+            silene_expert: "Silene Expert search with automatic token refresh.",
+            inaturalist: "iNaturalist observations with selectable quality grade.",
+            both: "Combined export runs GBIF, Silene Expert and iNaturalist in parallel.",
+        };
+        sourceHint.textContent = labels[activeSource] || labels.gbif;
+    }
 }
 
 async function runSearch() {
-    const { source, family, species, genus, country, dateFrom, dateTo, params } = getQueryParams();
+    const { source, family, species, genus, country, dateFrom, dateTo, qualityGrade, resultLimit, maxPages, params } = getQueryParams();
 
     if (dateFrom && dateTo && dateFrom > dateTo) {
         setMessage("Error: date_from must be before date_to.", "error");
@@ -212,7 +240,7 @@ async function runSearch() {
         data = applyFamilyFilterClientSide(data, family);
 
         renderResults(data);
-        saveLastSearch({ params: { source, family, species, genus, country, dateFrom, dateTo }, data });
+        saveLastSearch({ params: { source, family, species, genus, country, dateFrom, dateTo, qualityGrade, resultLimit, maxPages }, data });
 
         setMessage("Search completed.", "success");
     } catch (error) {
@@ -237,7 +265,7 @@ if (sourceSelect) {
 
 searchBtn.addEventListener("click", runSearch);
 
-[familyInput, speciesInput, genusInput, countryInput, dateFromInput, dateToInput].filter(Boolean).forEach((input) => {
+[familyInput, speciesInput, genusInput, countryInput, dateFromInput, dateToInput, qualityGradeInput, resultLimitInput, maxPagesInput].filter(Boolean).forEach((input) => {
     input.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
             e.preventDefault();
@@ -254,6 +282,9 @@ resetBtn.addEventListener("click", function () {
     countryInput.value = "";
     if (dateFromInput) dateFromInput.value = "";
     if (dateToInput) dateToInput.value = "";
+    if (qualityGradeInput) qualityGradeInput.value = "";
+    if (resultLimitInput) resultLimitInput.value = "100";
+    if (maxPagesInput) maxPagesInput.value = "50";
 
     setMessage("Ready to search.", "neutral");
     countText.textContent = "No search started.";
@@ -264,7 +295,7 @@ resetBtn.addEventListener("click", function () {
 
     resultsBody.innerHTML = `
         <tr>
-            <td colspan="10" class="empty-state">
+            <td colspan="11" class="empty-state">
                 No results to display.
             </td>
         </tr>
@@ -272,7 +303,7 @@ resetBtn.addEventListener("click", function () {
 });
 
 exportBtn.addEventListener("click", function () {
-    const { source, dateFrom, dateTo, params } = getQueryParams();
+    const { source, dateFrom, dateTo, maxPages, params } = getQueryParams();
 
     if (dateFrom && dateTo && dateFrom > dateTo) {
         setMessage("Error: date_from must be before date_to.", "error");
@@ -281,6 +312,7 @@ exportBtn.addEventListener("click", function () {
 
     let url = "";
     let defaultFilename = "resultats.csv";
+    if (maxPages !== "") params.set("max_pages", maxPages);
 
     if (source === "gbif") {
         url = `${API_URL}/search/csv?${params.toString()}`;

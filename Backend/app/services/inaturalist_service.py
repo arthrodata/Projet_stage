@@ -14,6 +14,7 @@ from Backend.app.utils.date_filters import filter_rows_by_date_range
 
 INATURALIST_API_BASE_URL = "https://api.inaturalist.org/v1"
 EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "resultats_inaturalist.csv"
+DEFAULT_QUALITY_GRADE = "research,needs_id,casual"
 CSV_EXPORT_COLUMNS = [
     "source_bdd",
     "country",
@@ -24,6 +25,7 @@ CSV_EXPORT_COLUMNS = [
     "family",
     "genus",
     "species",
+    "quality_grade",
     "status",
 ]
 
@@ -102,9 +104,20 @@ def _places_by_ids(place_ids: tuple[int, ...]) -> list[dict[str, Any]]:
 
 
 def _country_from_observation(observation: dict[str, Any]) -> str:
+    return _country_from_places(observation, None)
+
+
+def _country_from_places(observation: dict[str, Any], places_by_id: dict[int, dict[str, Any]] | None) -> str:
     place_ids = observation.get("place_ids")
     if isinstance(place_ids, list):
-        places = _places_by_ids(tuple(place_id for place_id in place_ids if isinstance(place_id, int)))
+        if places_by_id is None:
+            places = _places_by_ids(tuple(place_id for place_id in place_ids if isinstance(place_id, int)))
+        else:
+            places = [
+                places_by_id[place_id]
+                for place_id in place_ids
+                if isinstance(place_id, int) and place_id in places_by_id
+            ]
         for place in places:
             if place.get("admin_level") == 0 or place.get("place_type") == 12:
                 name = place.get("name")
@@ -201,6 +214,7 @@ def _map_observation(
     *,
     family_filter: str | None = None,
     genus_filter: str | None = None,
+    places_by_id: dict[int, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     taxon = _taxon_from_observation(observation)
     taxon_name = str(taxon.get("name") or "").strip()
@@ -212,7 +226,7 @@ def _map_observation(
 
     return {
         "source_bdd": "iNaturalist",
-        "country": _country_from_observation(observation),
+        "country": _country_from_places(observation, places_by_id),
         "coordinates": _coordinates_from_observation(observation),
         "eventDate": _event_date_from_observation(observation),
         "basisOfRecord": "HUMAN_OBSERVATION",
@@ -220,6 +234,7 @@ def _map_observation(
         "family": family_value or "Non renseigne",
         "genus": genus_value or "Non renseigne",
         "species": species_value or "Non renseigne",
+        "quality_grade": observation.get("quality_grade") or "Non renseigne",
     }
 
 
@@ -270,6 +285,7 @@ def search_inaturalist(
     country: Optional[str] = None,
     date_from: date | None = None,
     date_to: date | None = None,
+    quality_grade: str | None = None,
     limit: int = 100,
     page: int = 1,
     *,
@@ -286,7 +302,7 @@ def search_inaturalist(
     taxon_name = (species or "").strip() or (genus or "").strip() or (family or "").strip()
     params: dict[str, Any] = {
         "per_page": safe_limit,
-        "quality_grade": "research",
+        "quality_grade": (quality_grade or DEFAULT_QUALITY_GRADE).strip(),
         "order_by": "observed_on",
         "order": "desc",
     }
@@ -333,8 +349,16 @@ def search_inaturalist(
     else:
         observations = fetch_page(safe_page)
 
+    all_place_ids = tuple(
+        place_id
+        for observation in observations
+        for place_id in (observation.get("place_ids") or [])
+        if isinstance(place_id, int)
+    )
+    places_by_id = {int(place["id"]): place for place in _places_by_ids(all_place_ids) if isinstance(place.get("id"), int)}
+
     rows = [
-        _map_observation(observation, family_filter=family, genus_filter=genus)
+        _map_observation(observation, family_filter=family, genus_filter=genus, places_by_id=places_by_id)
         for observation in observations
     ]
 

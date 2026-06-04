@@ -23,6 +23,7 @@ CSV_EXPORT_COLUMNS = [
     "family",
     "genus",
     "species",
+    "quality_grade",
     "status",
 ]
 
@@ -41,6 +42,7 @@ def _normalize_rows(rows: list[dict[str, Any]]) -> pd.DataFrame:
                 "family",
                 "genus",
                 "species",
+                "quality_grade",
                 "status",
                 "iucn_status",
                 "iucn_lookup_status",
@@ -71,6 +73,8 @@ def _normalize_rows(rows: list[dict[str, Any]]) -> pd.DataFrame:
         df["iucn_scope"] = ""
     if "redListCategory" not in df.columns:
         df["redListCategory"] = ""
+    if "quality_grade" not in df.columns:
+        df["quality_grade"] = ""
 
     for col in (
         "source_bdd",
@@ -100,6 +104,7 @@ def _normalize_rows(rows: list[dict[str, Any]]) -> pd.DataFrame:
         "family",
         "genus",
         "species",
+        "quality_grade",
         "status",
         "iucn_status",
         "iucn_lookup_status",
@@ -118,6 +123,7 @@ def search_gbif_and_silene_expert(
     country: Optional[str] = None,
     date_from: date | None = None,
     date_to: date | None = None,
+    quality_grade: str | None = None,
     limit: int = 100,
     page: int = 1,
     *,
@@ -173,6 +179,7 @@ def search_gbif_and_silene_expert(
             country=country,
             date_from=date_from,
             date_to=date_to,
+            quality_grade=quality_grade,
             limit=limit,
             page=1 if fetch_all else page,
             export_csv=False,
