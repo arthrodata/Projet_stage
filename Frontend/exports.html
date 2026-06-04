@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BioData Explorer - Historique CSV</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="search.css">
+    <link rel="stylesheet" href="exports.css">
+</head>
+
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-mark">B</div>
+            <div>
+                <h1>BioData Explorer</h1>
+                <p>Biological occurrences</p>
+            </div>
+        </div>
+
+        <nav class="side-nav" aria-label="Main navigation">
+            <a class="nav-item" href="dashboard.html">
+                <span class="nav-icon">DB</span>
+                Dashboard
+            </a>
+            <a class="nav-item" href="search.html">
+                <span class="nav-icon">RE</span>
+                Recherche
+            </a>
+            <a class="nav-item active" href="exports.html">
+                <span class="nav-icon">CSV</span>
+                Exports CSV
+            </a>
+        </nav>
+
+        <div class="api-card">
+            <span class="status-dot"></span>
+            <div>
+                <strong>Backend FastAPI</strong>
+                <p>http://127.0.0.1:8000</p>
+            </div>
+        </div>
+    </aside>
+
+    <main class="main-area">
+        <header class="exports-topbar">
+            <div>
+                <span class="section-kicker">Exports</span>
+                <h2>Historique CSV</h2>
+                <p>Consultez les 10 derni&egrave;res recherches CSV g&eacute;n&eacute;r&eacute;es par les sources connect&eacute;es.</p>
+            </div>
+        </header>
+
+        <section class="panel exports-panel">
+            <div class="panel-heading compact">
+                <div>
+                    <span class="section-kicker">Fichiers</span>
+                    <h3>Historique des exports CSV</h3>
+                </div>
+                <div id="exportsMessage" class="message-pill neutral">Chargement...</div>
+            </div>
+
+            <div class="exports-summary">
+                <article>
+                    <span>Recherches sauvegard&eacute;es</span>
+                    <strong id="summarySearches">0 recherche</strong>
+                </article>
+                <article>
+                    <span>Derni&egrave;re recherche</span>
+                    <strong id="summaryRecords">0 records</strong>
+                </article>
+                <article>
+                    <span>Dernier export</span>
+                    <strong id="summaryDate">Aucun export r&eacute;cent</strong>
+                </article>
+            </div>
+
+            <div class="exports-table-card">
+                <table class="exports-table">
+                    <thead>
+                        <tr>
+                            <th>Recherche</th>
+                            <th>Fichier</th>
+                            <th>Source</th>
+                            <th>Records</th>
+                            <th>Date</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="exportsBody"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script src="exports.js"></script>
+</body>
+</html>

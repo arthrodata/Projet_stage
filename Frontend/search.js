@@ -2,6 +2,7 @@ console.log("search.js loaded");
 
 const API_URL = "http://127.0.0.1:8000";
 const STORAGE_KEY = "biodiversity:last_search_v1";
+const HISTORY_KEY = "biodiversity:search_history_v1";
 const DEFAULT_RESULT_LIMIT = "100";
 const DEFAULT_MAX_EXPORT_PAGES = "50";
 
@@ -125,14 +126,22 @@ function applyFamilyFilterClientSide(data, family) {
 
 function saveLastSearch(payload) {
     try {
+        const entry = {
+            id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            savedAt: new Date().toISOString(),
+            params: payload.params,
+            data: payload.data,
+        };
+
         localStorage.setItem(
             STORAGE_KEY,
-            JSON.stringify({
-                savedAt: new Date().toISOString(),
-                params: payload.params,
-                data: payload.data,
-            })
+            JSON.stringify(entry)
         );
+
+        const rawHistory = localStorage.getItem(HISTORY_KEY);
+        const history = rawHistory ? JSON.parse(rawHistory) : [];
+        const nextHistory = [entry, ...(Array.isArray(history) ? history : [])].slice(0, 10);
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(nextHistory));
     } catch {
         // ignore quota / private mode issues
     }
