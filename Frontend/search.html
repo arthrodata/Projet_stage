@@ -162,6 +162,15 @@
                         <button type="button" id="resetBtn" class="btn-muted">Reset</button>
                         <button type="button" id="exportBtn" class="btn-export">Download CSV</button>
                     </div>
+                    <div id="downloadProgress" class="download-progress" hidden>
+                        <div class="download-progress-head">
+                            <span id="downloadProgressText">Preparing CSV...</span>
+                            <strong id="downloadProgressValue">0%</strong>
+                        </div>
+                        <div class="download-progress-track">
+                            <div id="downloadProgressBar" class="download-progress-bar"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>

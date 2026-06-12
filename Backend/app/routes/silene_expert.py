@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from Backend.app.utils.date_filters import parse_query_date_range
+from Backend.app.utils.csv_export_cache import cached_export_matches, export_signature, remember_export, write_rows_export
 
 from Backend.app.services.silene_expert_service import (
     EXPORT_FILE,
@@ -39,7 +40,7 @@ def search(
         start_date, end_date = parse_query_date_range(date_from, date_to)
     except ValueError:
         raise HTTPException(status_code=400, detail="date_from/date_to must be YYYY-MM-DD and date_from <= date_to.")
-    return search_silene_expert_mapped(
+    data = search_silene_expert_mapped(
         family=family,
         genus=genus,
         species=species,
@@ -48,7 +49,24 @@ def search(
         date_to=end_date,
         limit=limit,
         page=page,
+        export_csv=False,
     )
+    write_rows_export(
+        EXPORT_FILE,
+        data,
+        export_signature(
+            "silene_expert_preview",
+            family=family,
+            genus=genus,
+            species=species,
+            country=country,
+            date_from=date_from,
+            date_to=date_to,
+            limit=limit,
+            page=page,
+        ),
+    )
+    return data
 
 
 @router.get("/search/csv")
@@ -71,21 +89,35 @@ def export_csv(
         start_date, end_date = parse_query_date_range(date_from, date_to)
     except ValueError:
         raise HTTPException(status_code=400, detail="date_from/date_to must be YYYY-MM-DD and date_from <= date_to.")
-    search_silene_expert_mapped(
+
+    signature = export_signature(
+        "silene_expert",
         family=family,
         genus=genus,
         species=species,
         country=country,
-        date_from=start_date,
-        date_to=end_date,
+        date_from=date_from,
+        date_to=date_to,
         limit=limit,
-        page=1,
-        fetch_all=True,
-        include_iucn=True,
         max_pages=max_pages,
-        export_csv=True,
-        export_file=EXPORT_FILE,
     )
+    if not cached_export_matches(EXPORT_FILE, signature):
+        search_silene_expert_mapped(
+            family=family,
+            genus=genus,
+            species=species,
+            country=country,
+            date_from=start_date,
+            date_to=end_date,
+            limit=limit,
+            page=1,
+            fetch_all=True,
+            include_iucn=True,
+            max_pages=max_pages,
+            export_csv=True,
+            export_file=EXPORT_FILE,
+        )
+        remember_export(EXPORT_FILE, signature)
 
     return FileResponse(
         path=str(EXPORT_FILE),

@@ -18,13 +18,13 @@ const SOURCE_CONFIG = {
         url: `${API_URL}/silene-expert/search/csv`,
     },
     both: {
-        filename: "resultats_gbif_silene.csv",
+        filename: "resultats_gbif_silene_inaturalist.csv",
         source: "Combined",
         badge: "combined",
         url: `${API_URL}/combined/search/csv`,
     },
     combined: {
-        filename: "resultats_gbif_silene.csv",
+        filename: "resultats_gbif_silene_inaturalist.csv",
         source: "Combined",
         badge: "combined",
         url: `${API_URL}/combined/search/csv`,
@@ -166,6 +166,76 @@ function setDownloadLoading(button, isLoading) {
     button.querySelector(".download-label").textContent = isLoading ? "Pr\u00e9paration..." : "T\u00e9l\u00e9charger";
 }
 
+function formatBytes(bytes) {
+    const value = Number(bytes || 0);
+    if (!Number.isFinite(value) || value <= 0) return "0 Ko";
+    if (value < 1024 * 1024) return `${Math.round(value / 1024)} Ko`;
+    return `${(value / (1024 * 1024)).toFixed(1)} Mo`;
+}
+
+function formatSeconds(seconds) {
+    const value = Math.max(0, Math.round(Number(seconds || 0)));
+    if (value < 60) return `${value} s`;
+    const minutes = Math.floor(value / 60);
+    const rest = value % 60;
+    return `${minutes} min ${rest} s`;
+}
+
+async function fetchCsvWithProgress(url, filename) {
+    const startedAt = Date.now();
+    let timer = window.setInterval(() => {
+        const elapsed = Math.round((Date.now() - startedAt) / 1000);
+        setMessage(`Preparation de ${filename}... ${elapsed} s ecoulee(s)`, "neutral");
+    }, 1000);
+
+    let response;
+    try {
+        response = await fetch(url);
+    } finally {
+        if (timer) {
+            window.clearInterval(timer);
+            timer = null;
+        }
+    }
+
+    if (!response.ok) throw new Error(`CSV download failed: ${response.status}`);
+
+    const total = Number(response.headers.get("Content-Length") || 0);
+    const contentType = response.headers.get("Content-Type") || "text/csv;charset=utf-8";
+
+    if (!response.body) {
+        setMessage(`Telechargement de ${filename}...`, "neutral");
+        return response.blob();
+    }
+
+    const reader = response.body.getReader();
+    const chunks = [];
+    let received = 0;
+    const downloadStartedAt = Date.now();
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.length;
+
+        if (total > 0) {
+            const elapsedSeconds = Math.max(0.1, (Date.now() - downloadStartedAt) / 1000);
+            const percent = Math.min(100, Math.round((received / total) * 100));
+            const speed = received / elapsedSeconds;
+            const remainingSeconds = speed > 0 ? (total - received) / speed : 0;
+            setMessage(
+                `${filename}: ${percent}% - ${formatBytes(received)} / ${formatBytes(total)} - reste ${formatSeconds(remainingSeconds)}`,
+                "neutral"
+            );
+        } else {
+            setMessage(`${filename}: ${formatBytes(received)} recus`, "neutral");
+        }
+    }
+
+    return new Blob(chunks, { type: contentType });
+}
+
 async function downloadCsv(entry, button) {
     const config = getSourceConfig(entry);
 
@@ -173,10 +243,7 @@ async function downloadCsv(entry, button) {
         setDownloadLoading(button, true);
         setMessage(`G\u00e9n\u00e9ration de ${config.filename}...`, "neutral");
 
-        const response = await fetch(buildDownloadUrl(entry));
-        if (!response.ok) throw new Error(`CSV download failed: ${response.status}`);
-
-        const blob = await response.blob();
+        const blob = await fetchCsvWithProgress(buildDownloadUrl(entry), config.filename);
         const objectUrl = URL.createObjectURL(blob);
 
         const link = document.createElement("a");

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
+from Backend.app.utils.csv_export_cache import cached_export_matches, export_signature, remember_export, write_rows_export
 from Backend.app.utils.date_filters import parse_query_date_range
 
 from Backend.app.services.combined_service import COMBINED_EXPORT_FILE, search_gbif_and_silene_expert
@@ -23,7 +24,7 @@ def search(
         start_date, end_date = parse_query_date_range(date_from, date_to)
     except ValueError:
         raise HTTPException(status_code=400, detail="date_from/date_to must be YYYY-MM-DD and date_from <= date_to.")
-    return search_gbif_and_silene_expert(
+    data = search_gbif_and_silene_expert(
         family=family,
         genus=genus,
         species=species,
@@ -33,8 +34,25 @@ def search(
         quality_grade=quality_grade,
         limit=limit,
         page=page,
-        export_csv=True,
+        export_csv=False,
     )
+    write_rows_export(
+        COMBINED_EXPORT_FILE,
+        data,
+        export_signature(
+            "combined_preview",
+            family=family,
+            genus=genus,
+            species=species,
+            country=country,
+            date_from=date_from,
+            date_to=date_to,
+            quality_grade=quality_grade,
+            limit=limit,
+            page=page,
+        ),
+    )
+    return data
 
 
 @router.get("/search/csv")
@@ -58,22 +76,37 @@ def export_csv(
         start_date, end_date = parse_query_date_range(date_from, date_to)
     except ValueError:
         raise HTTPException(status_code=400, detail="date_from/date_to must be YYYY-MM-DD and date_from <= date_to.")
-    search_gbif_and_silene_expert(
+
+    signature = export_signature(
+        "combined",
         family=family,
         genus=genus,
         species=species,
         country=country,
-        date_from=start_date,
-        date_to=end_date,
+        date_from=date_from,
+        date_to=date_to,
         quality_grade=quality_grade,
         limit=limit,
-        page=1,
-        fetch_all=True,
-        include_iucn=True,
         max_pages=max_pages,
-        export_csv=True,
-        export_file=COMBINED_EXPORT_FILE,
     )
+    if not cached_export_matches(COMBINED_EXPORT_FILE, signature):
+        search_gbif_and_silene_expert(
+            family=family,
+            genus=genus,
+            species=species,
+            country=country,
+            date_from=start_date,
+            date_to=end_date,
+            quality_grade=quality_grade,
+            limit=limit,
+            page=1,
+            fetch_all=True,
+            include_iucn=True,
+            max_pages=max_pages,
+            export_csv=True,
+            export_file=COMBINED_EXPORT_FILE,
+        )
+        remember_export(COMBINED_EXPORT_FILE, signature)
 
     return FileResponse(
         path=str(COMBINED_EXPORT_FILE),

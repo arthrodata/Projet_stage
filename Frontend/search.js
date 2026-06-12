@@ -13,6 +13,10 @@ const exportBtn = document.getElementById("exportBtn");
 const resultsBody = document.getElementById("resultsBody");
 const countText = document.getElementById("countText");
 const message = document.getElementById("message");
+const downloadProgress = document.getElementById("downloadProgress");
+const downloadProgressText = document.getElementById("downloadProgressText");
+const downloadProgressValue = document.getElementById("downloadProgressValue");
+const downloadProgressBar = document.getElementById("downloadProgressBar");
 
 const sourceSelect = document.getElementById("sourceSelect");
 const sourceCards = document.querySelectorAll(".source-card");
@@ -182,6 +186,105 @@ function setMessage(text, type) {
     if (type === "neutral") message.classList.add("neutral");
 }
 
+function formatBytes(bytes) {
+    const value = Number(bytes || 0);
+    if (!Number.isFinite(value) || value <= 0) return "0 Ko";
+    if (value < 1024 * 1024) return `${Math.round(value / 1024)} Ko`;
+    return `${(value / (1024 * 1024)).toFixed(1)} Mo`;
+}
+
+function formatSeconds(seconds) {
+    const value = Math.max(0, Math.round(Number(seconds || 0)));
+    if (value < 60) return `${value} s`;
+    const minutes = Math.floor(value / 60);
+    const rest = value % 60;
+    return `${minutes} min ${rest} s`;
+}
+
+function showDownloadProgress(text, value, percent, indeterminate) {
+    if (!downloadProgress || !downloadProgressText || !downloadProgressValue || !downloadProgressBar) return;
+    downloadProgress.hidden = false;
+    downloadProgress.classList.toggle("indeterminate", Boolean(indeterminate));
+    downloadProgressText.textContent = text;
+    downloadProgressValue.textContent = value;
+    if (!indeterminate) {
+        downloadProgressBar.style.width = `${Math.max(0, Math.min(100, Number(percent || 0)))}%`;
+    }
+}
+
+function hideDownloadProgress() {
+    if (!downloadProgress) return;
+    downloadProgress.hidden = true;
+    downloadProgress.classList.remove("indeterminate");
+    if (downloadProgressBar) downloadProgressBar.style.width = "0%";
+}
+
+async function downloadBlobWithProgress(url) {
+    const startedAt = Date.now();
+    let timer = window.setInterval(() => {
+        const elapsed = Math.round((Date.now() - startedAt) / 1000);
+        showDownloadProgress(`Preparation du CSV... ${elapsed} s ecoulee(s)`, "...", 0, true);
+    }, 1000);
+
+    showDownloadProgress("Preparation du CSV...", "...", 0, true);
+    let response;
+    try {
+        response = await fetch(url);
+    } finally {
+        if (timer) {
+            window.clearInterval(timer);
+            timer = null;
+        }
+    }
+
+    if (!response.ok) throw new Error("CSV error");
+
+    const total = Number(response.headers.get("Content-Length") || 0);
+    const contentType = response.headers.get("Content-Type") || "text/csv;charset=utf-8";
+
+    if (!response.body) {
+        showDownloadProgress("Telechargement du CSV...", "...", 0, true);
+        const blob = await response.blob();
+        showDownloadProgress("Telechargement termine.", "100%", 100, false);
+        return blob;
+    }
+
+    const reader = response.body.getReader();
+    const chunks = [];
+    let received = 0;
+    const downloadStartedAt = Date.now();
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.length;
+
+        const elapsedSeconds = Math.max(0.1, (Date.now() - downloadStartedAt) / 1000);
+        if (total > 0) {
+            const percent = Math.min(100, Math.round((received / total) * 100));
+            const speed = received / elapsedSeconds;
+            const remainingSeconds = speed > 0 ? (total - received) / speed : 0;
+            showDownloadProgress(
+                `Telechargement CSV: ${formatBytes(received)} / ${formatBytes(total)} - reste ${formatSeconds(remainingSeconds)}`,
+                `${percent}%`,
+                percent,
+                false
+            );
+        } else {
+            showDownloadProgress(
+                `Telechargement CSV: ${formatBytes(received)} recus`,
+                "...",
+                55,
+                true
+            );
+        }
+    }
+
+    showDownloadProgress("Telechargement termine.", "100%", 100, false);
+    return new Blob(chunks, { type: contentType });
+}
+
 function syncSourceCards() {
     const activeSource = ((sourceSelect && sourceSelect.value) || "gbif").trim();
     sourceCards.forEach((card) => {
@@ -335,13 +438,10 @@ exportBtn.addEventListener("click", function () {
 
     (async () => {
         try {
-            setMessage("Generating CSV...", "neutral");
+            setMessage("Preparing CSV...", "neutral");
             setLoading(true);
 
-            const response = await fetch(url);
-            if (!response.ok) throw new Error("CSV error");
-
-            const blob = await response.blob();
+            const blob = await downloadBlobWithProgress(url);
             const objectUrl = URL.createObjectURL(blob);
 
             const a = document.createElement("a");
@@ -354,9 +454,11 @@ exportBtn.addEventListener("click", function () {
             URL.revokeObjectURL(objectUrl);
 
             setMessage("CSV downloaded.", "success");
+            window.setTimeout(hideDownloadProgress, 1200);
         } catch (error) {
             console.error(error);
             setMessage("Error: unable to download CSV.", "error");
+            showDownloadProgress("Erreur pendant le telechargement.", "Erreur", 100, false);
         } finally {
             setLoading(false);
         }
