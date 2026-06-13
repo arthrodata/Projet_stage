@@ -240,6 +240,8 @@ def search_gbif(
         return []
 
     for column in ("genus", "species", "scientificName", "country", "family", "basisOfRecord"):
+        if column not in df.columns:
+            df[column] = ""
         df[column] = df[column].fillna("")
 
     df = df[df["basisOfRecord"] == TARGET_BASIS_OF_RECORD]

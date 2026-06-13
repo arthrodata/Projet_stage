@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+from fastapi.responses import FileResponse
 
 from Backend.app.utils.row_normalization import CSV_EXPORT_COLUMNS, normalize_rows
 
@@ -66,3 +67,17 @@ def write_rows_export(csv_path: Path, rows: list[dict[str, Any]], signature: dic
         encoding="utf-8-sig",
     )
     remember_export(csv_path, signature)
+
+
+def csv_file_response(csv_path: Path, filename: str) -> FileResponse:
+    size = csv_path.stat().st_size if csv_path.exists() else 0
+    return FileResponse(
+        path=str(csv_path),
+        media_type="text/csv; charset=utf-8",
+        filename=filename,
+        headers={
+            "Cache-Control": "no-store",
+            "Content-Length": str(size),
+            "Access-Control-Expose-Headers": "Content-Length",
+        },
+    )

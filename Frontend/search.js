@@ -223,10 +223,10 @@ async function downloadBlobWithProgress(url) {
     const startedAt = Date.now();
     let timer = window.setInterval(() => {
         const elapsed = Math.round((Date.now() - startedAt) / 1000);
-        showDownloadProgress(`Preparation du CSV... ${elapsed} s ecoulee(s)`, "...", 0, true);
+        showDownloadProgress(`Preparation du CSV... ${elapsed} s`, "0%", 0, true);
     }, 1000);
 
-    showDownloadProgress("Preparation du CSV...", "...", 0, true);
+    showDownloadProgress("Preparation du CSV...", "0%", 0, true);
     let response;
     try {
         response = await fetch(url);
@@ -266,16 +266,16 @@ async function downloadBlobWithProgress(url) {
             const speed = received / elapsedSeconds;
             const remainingSeconds = speed > 0 ? (total - received) / speed : 0;
             showDownloadProgress(
-                `Telechargement CSV: ${formatBytes(received)} / ${formatBytes(total)} - reste ${formatSeconds(remainingSeconds)}`,
+                `Telechargement CSV: ${percent}% - ${formatBytes(received)} / ${formatBytes(total)} - reste ${formatSeconds(remainingSeconds)}`,
                 `${percent}%`,
                 percent,
                 false
             );
         } else {
             showDownloadProgress(
-                `Telechargement CSV: ${formatBytes(received)} recus`,
-                "...",
-                55,
+                `Telechargement CSV en cours - ${formatBytes(received)} recus`,
+                "Calcul...",
+                35,
                 true
             );
         }
@@ -420,6 +420,7 @@ exportBtn.addEventListener("click", function () {
 
     let url = "";
     let defaultFilename = "resultats.csv";
+    params.set("preview", "1");
     if (maxPages !== "") params.set("max_pages", maxPages);
 
     if (source === "gbif") {

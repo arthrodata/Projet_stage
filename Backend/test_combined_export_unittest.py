@@ -92,6 +92,16 @@ class TestCombinedExport(unittest.TestCase):
         self.assertNotIn("quality_grade", gbif.call_args.kwargs)
         self.assertNotIn("quality_grade", silene.call_args.kwargs)
 
+    def test_passes_iucn_enrichment_flag_to_all_sources(self):
+        with patch("Backend.app.services.combined_service.search_gbif", return_value=[]) as gbif, patch(
+            "Backend.app.services.combined_service.search_silene_expert_mapped", return_value=[]
+        ) as silene, patch("Backend.app.services.combined_service.search_inaturalist", return_value=[]) as inaturalist:
+            search_gbif_and_silene_expert(include_iucn=True, export_csv=False)
+
+        self.assertTrue(gbif.call_args.kwargs["include_iucn"])
+        self.assertTrue(silene.call_args.kwargs["include_iucn"])
+        self.assertTrue(inaturalist.call_args.kwargs["include_iucn"])
+
 
 if __name__ == "__main__":
     unittest.main()

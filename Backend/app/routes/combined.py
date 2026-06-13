@@ -1,6 +1,11 @@
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
-from Backend.app.utils.csv_export_cache import cached_export_matches, export_signature, remember_export, write_rows_export
+from Backend.app.utils.csv_export_cache import (
+    cached_export_matches,
+    csv_file_response,
+    export_signature,
+    remember_export,
+    write_rows_export,
+)
 from Backend.app.utils.date_filters import parse_query_date_range
 
 from Backend.app.services.combined_service import COMBINED_EXPORT_FILE, search_gbif_and_silene_expert
@@ -66,6 +71,7 @@ def export_csv(
     quality_grade: str = None,
     limit: int = 200,
     max_pages: int = 50,
+    preview: bool = False,
 ):
     if not any([(family or "").strip(), (genus or "").strip(), (species or "").strip()]):
         raise HTTPException(
@@ -76,6 +82,21 @@ def export_csv(
         start_date, end_date = parse_query_date_range(date_from, date_to)
     except ValueError:
         raise HTTPException(status_code=400, detail="date_from/date_to must be YYYY-MM-DD and date_from <= date_to.")
+
+    preview_signature = export_signature(
+        "combined_preview",
+        family=family,
+        genus=genus,
+        species=species,
+        country=country,
+        date_from=date_from,
+        date_to=date_to,
+        quality_grade=quality_grade,
+        limit=limit,
+        page=1,
+    )
+    if preview and cached_export_matches(COMBINED_EXPORT_FILE, preview_signature):
+        return csv_file_response(COMBINED_EXPORT_FILE, "resultats_gbif_silene_inaturalist.csv")
 
     signature = export_signature(
         "combined",
@@ -108,9 +129,4 @@ def export_csv(
         )
         remember_export(COMBINED_EXPORT_FILE, signature)
 
-    return FileResponse(
-        path=str(COMBINED_EXPORT_FILE),
-        media_type="text/csv; charset=utf-8",
-        filename="resultats_gbif_silene_inaturalist.csv",
-        headers={"Cache-Control": "no-store"},
-    )
+    return csv_file_response(COMBINED_EXPORT_FILE, "resultats_gbif_silene_inaturalist.csv")

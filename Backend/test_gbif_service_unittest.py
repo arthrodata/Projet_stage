@@ -48,6 +48,41 @@ class TestGbifSearch(unittest.TestCase):
         self.assertEqual(rows[0]["status"], "VU")
         enrich.assert_called_once()
 
+    def test_search_handles_missing_genus_column(self):
+        class FakeResponse:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {
+                    "results": [
+                        {
+                            "country": "Kenya",
+                            "decimalLatitude": -1.286389,
+                            "decimalLongitude": 36.817223,
+                            "eventDate": "2024-01-02T10:30:00",
+                            "basisOfRecord": "HUMAN_OBSERVATION",
+                            "datasetName": "GBIF dataset",
+                            "family": "Felidae",
+                            "species": "Panthera leo",
+                            "scientificName": "Panthera leo",
+                        }
+                    ],
+                    "endOfRecords": True,
+                }
+
+        class FakeSession:
+            trust_env = False
+
+            def get(self, *args, **kwargs):
+                return FakeResponse()
+
+        with patch("Backend.app.services.gbif_service.requests.Session", return_value=FakeSession()):
+            rows = search_gbif(genus="Panthera", export_csv=False, include_iucn=False)
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["species"], "Panthera leo")
+
 
 if __name__ == "__main__":
     unittest.main()

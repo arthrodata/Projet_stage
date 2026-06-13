@@ -185,7 +185,7 @@ async function fetchCsvWithProgress(url, filename) {
     const startedAt = Date.now();
     let timer = window.setInterval(() => {
         const elapsed = Math.round((Date.now() - startedAt) / 1000);
-        setMessage(`Preparation de ${filename}... ${elapsed} s ecoulee(s)`, "neutral");
+        setMessage(`Preparation de ${filename}... 0% (${elapsed} s)`, "neutral");
     }, 1000);
 
     let response;
@@ -225,11 +225,11 @@ async function fetchCsvWithProgress(url, filename) {
             const speed = received / elapsedSeconds;
             const remainingSeconds = speed > 0 ? (total - received) / speed : 0;
             setMessage(
-                `${filename}: ${percent}% - ${formatBytes(received)} / ${formatBytes(total)} - reste ${formatSeconds(remainingSeconds)}`,
+                `Telechargement ${filename}: ${percent}% - ${formatBytes(received)} / ${formatBytes(total)} - reste ${formatSeconds(remainingSeconds)}`,
                 "neutral"
             );
         } else {
-            setMessage(`${filename}: ${formatBytes(received)} recus`, "neutral");
+            setMessage(`Telechargement ${filename} en cours - ${formatBytes(received)} recus`, "neutral");
         }
     }
 
