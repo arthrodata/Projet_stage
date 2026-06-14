@@ -2,16 +2,8 @@ const STORAGE_KEY = "biodiversity:last_search_v1";
 const LAST_RESULTS_KEY = "biodiversity_last_results";
 const IGNORED_SPECIES = new Set(["unknown", "non renseign\u00e9", "non renseigne", "not provided"]);
 const SPECIES_COLORS = ["#2563eb", "#059669", "#7c3aed", "#f97316", "#dc2626"];
-const GEO_BUBBLE_POSITIONS = [
-    { x: "20%", y: "34%" },
-    { x: "52%", y: "26%" },
-    { x: "76%", y: "46%" },
-    { x: "34%", y: "68%" },
-    { x: "66%", y: "74%" },
-    { x: "14%", y: "76%" },
-    { x: "84%", y: "24%" },
-    { x: "48%", y: "52%" },
-];
+const GEO_COUNTRY_COLORS = ["#2563eb", "#059669", "#7c3aed", "#f97316", "#dc2626"];
+let geoLeafletMap = null;
 
 function safeParseJson(raw) {
     try {
@@ -68,6 +60,20 @@ function normalizeCountry(value) {
     const text = String(value || "").trim();
     if (text === "" || IGNORED_SPECIES.has(text.toLowerCase())) return "";
     return text;
+}
+
+function parseCoordinates(value) {
+    const text = String(value || "").trim();
+    if (text === "" || IGNORED_SPECIES.has(text.toLowerCase())) return null;
+
+    const parts = text.split(",").map((part) => Number(String(part).trim()));
+    if (parts.length < 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) return null;
+
+    const lat = parts[0];
+    const lon = parts[1];
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+
+    return { lat, lon };
 }
 
 function calculateSpeciesDistribution(rows) {
@@ -147,18 +153,32 @@ function renderSpeciesDistribution(distribution) {
 }
 
 function buildCountryDistribution(results) {
-    const counts = new Map();
+    const grouped = new Map();
 
-    // Group the last saved results by country, ignoring placeholder values.
+    // Group by country and keep the first 10 coordinate points for each country.
     for (const item of results || []) {
         const country = normalizeCountry(item && item.country);
         if (!country) continue;
-        counts.set(country, (counts.get(country) || 0) + 1);
+
+        if (!grouped.has(country)) {
+            grouped.set(country, { country, count: 0, points: [] });
+        }
+
+        const entry = grouped.get(country);
+        entry.count += 1;
+
+        const coords = parseCoordinates(item && item.coordinates);
+        if (coords && entry.points.length < 10) {
+            entry.points.push({
+                ...coords,
+                species: normalizeSpecies(item && item.species),
+            });
+        }
     }
 
-    return Array.from(counts, ([country, count]) => ({ country, count }))
+    return Array.from(grouped.values())
         .sort((a, b) => b.count - a.count || a.country.localeCompare(b.country, "fr"))
-        .slice(0, 8);
+        .slice(0, 5);
 }
 
 function appendGeoRoute(map) {
@@ -168,50 +188,120 @@ function appendGeoRoute(map) {
     map.appendChild(route);
 }
 
+function escapeHtml(value) {
+    return String(value || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+function renderGeoEmptyState(map, text) {
+    const empty = document.createElement("p");
+    empty.className = "geo-empty-state";
+    empty.textContent = text;
+    map.appendChild(empty);
+}
+
+function resetGeoMap() {
+    if (geoLeafletMap) {
+        geoLeafletMap.remove();
+        geoLeafletMap = null;
+    }
+}
+
 function renderGeoDistributionChart(data) {
     const map = document.getElementById("geoMap");
     if (!map) return;
 
+    resetGeoMap();
     map.innerHTML = "";
-    appendGeoRoute(map);
 
     if (!Array.isArray(data) || data.length === 0) {
-        const empty = document.createElement("p");
-        empty.className = "geo-empty-state";
-        empty.textContent = "Aucune donn\u00e9e disponible pour g\u00e9n\u00e9rer la r\u00e9partition g\u00e9ographique.";
-        map.appendChild(empty);
+        appendGeoRoute(map);
+        renderGeoEmptyState(map, "Aucune donn\u00e9e disponible pour g\u00e9n\u00e9rer la r\u00e9partition g\u00e9ographique.");
         return;
     }
 
-    const maxCount = Math.max(...data.map((item) => item.count));
-    const minSize = 92;
-    const maxSize = 178;
+    const countriesWithPoints = data.filter((item) => Array.isArray(item.points) && item.points.length > 0);
+    if (countriesWithPoints.length === 0) {
+        appendGeoRoute(map);
+        renderGeoEmptyState(map, "Aucune coordonn\u00e9e disponible pour afficher les points sur la carte.");
+        return;
+    }
 
-    // Use fixed visual anchors so the card stays simple and predictable.
-    data.forEach((item, index) => {
-        const position = GEO_BUBBLE_POSITIONS[index % GEO_BUBBLE_POSITIONS.length];
-        const ratio = maxCount > 0 ? item.count / maxCount : 0;
-        const size = Math.round(minSize + (maxSize - minSize) * Math.sqrt(ratio));
+    if (typeof L === "undefined") {
+        appendGeoRoute(map);
+        renderGeoEmptyState(map, "La carte interactive n'a pas pu \u00eatre charg\u00e9e.");
+        return;
+    }
 
-        const bubble = document.createElement("div");
-        bubble.className = "geo-bubble";
-        bubble.style.setProperty("--geo-x", position.x);
-        bubble.style.setProperty("--geo-y", position.y);
-        bubble.style.setProperty("--geo-size", `${size}px`);
-        bubble.setAttribute("aria-label", `${item.country}: ${formatNumber(item.count)} occurrence(s)`);
+    const leafletContainer = document.createElement("div");
+    leafletContainer.className = "geo-leaflet-map";
+    map.appendChild(leafletContainer);
 
-        const country = document.createElement("div");
-        country.className = "geo-bubble-country";
-        country.textContent = item.country;
+    geoLeafletMap = L.map(leafletContainer, {
+        scrollWheelZoom: true,
+        worldCopyJump: true,
+    }).setView([20, 0], 2);
 
-        const count = document.createElement("div");
-        count.className = "geo-bubble-count";
-        count.textContent = `${formatNumber(item.count)} occ.`;
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 18,
+        attribution: "&copy; OpenStreetMap contributors",
+    }).addTo(geoLeafletMap);
 
-        bubble.appendChild(country);
-        bubble.appendChild(count);
-        map.appendChild(bubble);
+    const bounds = [];
+
+    countriesWithPoints.forEach((item, index) => {
+        const color = GEO_COUNTRY_COLORS[index % GEO_COUNTRY_COLORS.length];
+        const latLngs = item.points.map((point) => [point.lat, point.lon]);
+        const averageLat = latLngs.reduce((sum, point) => sum + point[0], 0) / latLngs.length;
+        const averageLon = latLngs.reduce((sum, point) => sum + point[1], 0) / latLngs.length;
+
+        item.points.forEach((point, pointIndex) => {
+            bounds.push([point.lat, point.lon]);
+
+            L.circleMarker([point.lat, point.lon], {
+                radius: 7,
+                color: "#ffffff",
+                weight: 2,
+                fillColor: color,
+                fillOpacity: 0.88,
+            })
+                .bindPopup(`
+                    <strong>${escapeHtml(item.country)}</strong><br>
+                    ${escapeHtml(point.species || "Occurrence")}<br>
+                    ${formatNumber(item.count)} occ. dans le pays<br>
+                    Point ${pointIndex + 1} / ${Math.min(10, item.points.length)}<br>
+                    ${point.lat}, ${point.lon}
+                `)
+                .addTo(geoLeafletMap);
+        });
+
+        L.marker([averageLat, averageLon], {
+            icon: L.divIcon({
+                className: "geo-country-marker",
+                html: `
+                    <div class="geo-country-marker-inner" style="--marker-color: ${color}">
+                        <strong>${escapeHtml(item.country)}</strong>
+                        <span>${formatNumber(item.count)} occ.</span>
+                    </div>
+                `,
+                iconSize: [138, 48],
+                iconAnchor: [69, 24],
+            }),
+            interactive: false,
+        }).addTo(geoLeafletMap);
     });
+
+    if (bounds.length === 1) {
+        geoLeafletMap.setView(bounds[0], 8);
+    } else {
+        geoLeafletMap.fitBounds(bounds, { padding: [34, 34], maxZoom: 7 });
+    }
+
+    window.setTimeout(() => geoLeafletMap && geoLeafletMap.invalidateSize(), 0);
 }
 
 function appendCell(row, value) {

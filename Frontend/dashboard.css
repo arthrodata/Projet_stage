@@ -221,16 +221,65 @@
 
 .geo-map {
     position: relative;
-    min-height: 360px;
+    min-height: 460px;
     border-radius: 20px;
     overflow: hidden;
-    background:
-        linear-gradient(rgba(148, 163, 184, 0.12) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(148, 163, 184, 0.12) 1px, transparent 1px),
-        radial-gradient(circle at 18% 28%, rgba(37, 99, 235, 0.12), transparent 28%),
-        radial-gradient(circle at 78% 72%, rgba(14, 165, 233, 0.12), transparent 30%),
-        #f8fbff;
-    background-size: 34px 34px, 34px 34px, auto, auto, auto;
+    background: #dbeafe;
+}
+
+.geo-leaflet-map {
+    width: 100%;
+    min-height: 460px;
+    height: clamp(420px, 52vw, 620px);
+    border-radius: 20px;
+    overflow: hidden;
+}
+
+.geo-leaflet-map .leaflet-control-zoom a {
+    color: var(--blue-dark);
+    font-weight: 900;
+}
+
+.geo-leaflet-map .leaflet-popup-content-wrapper {
+    border-radius: 14px;
+    font-family: "Plus Jakarta Sans", Arial, sans-serif;
+    box-shadow: 0 16px 34px rgba(15, 23, 42, 0.16);
+}
+
+.geo-leaflet-map .leaflet-popup-content {
+    color: var(--ink);
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+.geo-country-marker {
+    background: transparent;
+    border: 0;
+}
+
+.geo-country-marker-inner {
+    display: grid;
+    gap: 2px;
+    min-width: 120px;
+    padding: 8px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.78);
+    border-radius: 14px;
+    background: var(--marker-color);
+    color: #fff;
+    box-shadow: 0 16px 30px rgba(15, 23, 42, 0.22);
+    text-align: center;
+}
+
+.geo-country-marker-inner strong {
+    font-size: 13px;
+    line-height: 1.1;
+    overflow-wrap: anywhere;
+}
+
+.geo-country-marker-inner span {
+    font-size: 11px;
+    font-weight: 900;
+    opacity: 0.92;
 }
 
 .geo-route {
@@ -267,12 +316,14 @@
     padding: 12px;
     border: 1px solid rgba(37, 99, 235, 0.46);
     border-radius: 999px;
-    background: rgba(37, 99, 235, 0.74);
+    background: rgba(37, 99, 235, 0.58);
     color: #fff;
     box-shadow: 0 18px 38px rgba(37, 99, 235, 0.28);
     transform: translate(-50%, -50%);
     text-align: center;
     overflow: hidden;
+    z-index: 2;
+    pointer-events: none;
 }
 
 .geo-bubble-country {
@@ -287,6 +338,28 @@
     font-size: 12px;
     font-weight: 800;
     opacity: 0.92;
+}
+
+.geo-point {
+    position: absolute;
+    left: var(--geo-x);
+    top: var(--geo-y);
+    width: 12px;
+    height: 12px;
+    border: 2px solid #fff;
+    border-radius: 999px;
+    background: #0f766e;
+    box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.18), 0 8px 18px rgba(15, 23, 42, 0.22);
+    transform: translate(-50%, -50%);
+    z-index: 3;
+}
+
+.geo-point::after {
+    content: "";
+    position: absolute;
+    inset: -7px;
+    border: 1px solid rgba(15, 118, 110, 0.2);
+    border-radius: inherit;
 }
 
 .geo-empty-state {
@@ -361,20 +434,11 @@
     }
 
     .geo-map {
-        min-height: 460px;
+        min-height: 420px;
     }
 
-    .geo-bubble {
-        width: min(var(--geo-size), 112px);
-        height: min(var(--geo-size), 112px);
-        padding: 10px;
-    }
-
-    .geo-bubble-country {
-        font-size: 12px;
-    }
-
-    .geo-bubble-count {
-        font-size: 11px;
+    .geo-leaflet-map {
+        min-height: 420px;
+        height: 420px;
     }
 }
