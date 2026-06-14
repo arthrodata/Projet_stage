@@ -2,6 +2,7 @@ console.log("search.js loaded");
 
 const API_URL = "http://127.0.0.1:8000";
 const STORAGE_KEY = "biodiversity:last_search_v1";
+const LAST_RESULTS_KEY = "biodiversity_last_results";
 const HISTORY_KEY = "biodiversity:search_history_v1";
 const DEFAULT_RESULT_LIMIT = "100";
 const DEFAULT_MAX_EXPORT_PAGES = "50";
@@ -141,6 +142,8 @@ function saveLastSearch(payload) {
             STORAGE_KEY,
             JSON.stringify(entry)
         );
+        // Dedicated dashboard dataset: keep the normalized result rows unchanged.
+        localStorage.setItem(LAST_RESULTS_KEY, JSON.stringify(payload.data));
 
         const rawHistory = localStorage.getItem(HISTORY_KEY);
         const history = rawHistory ? JSON.parse(rawHistory) : [];
@@ -399,6 +402,7 @@ resetBtn.addEventListener("click", function () {
 
     try {
         localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(LAST_RESULTS_KEY);
     } catch {}
 
     resultsBody.innerHTML = `
