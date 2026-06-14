@@ -3,6 +3,8 @@ console.log("exports.js loaded");
 const API_URL = "http://127.0.0.1:8000";
 const STORAGE_KEY = "biodiversity:last_search_v1";
 const HISTORY_KEY = "biodiversity:search_history_v1";
+const DEFAULT_RESULT_LIMIT = "100";
+const DEFAULT_MAX_EXPORT_PAGES = "50";
 
 const SOURCE_CONFIG = {
     gbif: {
@@ -142,14 +144,74 @@ function buildDownloadUrl(entry) {
     if (params.country) query.append("country", params.country);
     if (params.dateFrom) query.append("date_from", params.dateFrom);
     if (params.dateTo) query.append("date_to", params.dateTo);
-    if (params.resultLimit) query.append("limit", params.resultLimit);
-    if (params.maxPages) query.append("max_pages", params.maxPages);
+    query.append("limit", params.resultLimit || DEFAULT_RESULT_LIMIT);
+    query.append("max_pages", params.maxPages || DEFAULT_MAX_EXPORT_PAGES);
+    query.append("preview", "1");
     if ((params.source === "inaturalist" || params.source === "both") && params.qualityGrade) {
         query.append("quality_grade", params.qualityGrade);
     }
 
     const queryString = query.toString();
     return queryString ? `${config.url}?${queryString}` : config.url;
+}
+
+function getCsvColumns(rows) {
+    const preferred = [
+        "source_bdd",
+        "country",
+        "coordinates",
+        "eventDate",
+        "basisOfRecord",
+        "datasetName",
+        "family",
+        "genus",
+        "species",
+        "quality_grade",
+        "status",
+        "iucn_status",
+        "redListCategory",
+    ];
+    const keys = new Set();
+
+    rows.forEach((row) => {
+        Object.keys(row || {}).forEach((key) => keys.add(key));
+    });
+
+    return [
+        ...preferred.filter((key) => keys.has(key)),
+        ...Array.from(keys).filter((key) => !preferred.includes(key)).sort(),
+    ];
+}
+
+function csvEscape(value) {
+    if (value === undefined || value === null) return "";
+    const text = String(value);
+    if (/[",\r\n;]/.test(text)) return `"${text.replaceAll('"', '""')}"`;
+    return text;
+}
+
+function buildCsvFromRows(rows) {
+    const safeRows = Array.isArray(rows) ? rows : [];
+    const columns = getCsvColumns(safeRows);
+    const lines = [
+        columns.map(csvEscape).join(","),
+        ...safeRows.map((row) => columns.map((column) => csvEscape(row && row[column])).join(",")),
+    ];
+
+    return new Blob([`\uFEFF${lines.join("\r\n")}\r\n`], { type: "text/csv;charset=utf-8" });
+}
+
+function triggerBlobDownload(blob, filename) {
+    const objectUrl = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    URL.revokeObjectURL(objectUrl);
 }
 
 function setMessage(text, type) {
@@ -241,19 +303,15 @@ async function downloadCsv(entry, button) {
 
     try {
         setDownloadLoading(button, true);
-        setMessage(`G\u00e9n\u00e9ration de ${config.filename}...`, "neutral");
+        setMessage(`Pr\u00e9paration de ${config.filename}...`, "neutral");
 
-        const blob = await fetchCsvWithProgress(buildDownloadUrl(entry), config.filename);
-        const objectUrl = URL.createObjectURL(blob);
+        if (entry && Array.isArray(entry.data) && entry.data.length > 0) {
+            triggerBlobDownload(buildCsvFromRows(entry.data), config.filename);
+        } else {
+            const blob = await fetchCsvWithProgress(buildDownloadUrl(entry), config.filename);
+            triggerBlobDownload(blob, config.filename);
+        }
 
-        const link = document.createElement("a");
-        link.href = objectUrl;
-        link.download = config.filename;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-
-        URL.revokeObjectURL(objectUrl);
         setMessage(`${config.filename} t\u00e9l\u00e9charg\u00e9.`, "success");
     } catch (error) {
         console.error(error);

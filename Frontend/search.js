@@ -353,7 +353,10 @@ async function runSearch() {
         data = applyFamilyFilterClientSide(data, family);
 
         renderResults(data);
-        saveLastSearch({ params: { source, family, species, genus, country, dateFrom, dateTo, qualityGrade }, data });
+        saveLastSearch({
+            params: { source, family, species, genus, country, dateFrom, dateTo, qualityGrade, resultLimit, maxPages },
+            data,
+        });
 
         setMessage("Search completed.", "success");
     } catch (error) {
