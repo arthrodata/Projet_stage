@@ -308,7 +308,8 @@ function syncSourceCards() {
 }
 
 async function runSearch() {
-    const { source, family, species, genus, country, dateFrom, dateTo, qualityGrade, params } = getQueryParams();
+    const { source, family, species, genus, country, dateFrom, dateTo, qualityGrade, resultLimit, maxPages, params } =
+        getQueryParams();
 
     if (dateFrom && dateTo && dateFrom > dateTo) {
         setMessage("Error: date_from must be before date_to.", "error");
