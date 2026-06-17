@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
+import logging
 from pathlib import Path
 from typing import Any, Optional
 
@@ -14,11 +15,23 @@ from Backend.app.utils.row_normalization import CSV_EXPORT_COLUMNS, STANDARD_COL
 
 
 COMBINED_EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "resultats_gbif_silene_inaturalist.csv"
+logger = logging.getLogger(__name__)
+
+
 def _normalize_rows(rows: list[dict[str, Any]]) -> pd.DataFrame:
     df = pd.DataFrame(rows or [])
     if df.empty:
         return pd.DataFrame(columns=STANDARD_COLUMNS)
     return normalize_dataframe(df, columns=STANDARD_COLUMNS)
+
+
+def _future_rows(source_name: str, future) -> list[dict[str, Any]]:
+    try:
+        rows = future.result()
+    except Exception:
+        logger.exception("Combined search source failed: %s", source_name)
+        return []
+    return rows or []
 
 
 def search_gbif_and_silene_expert(
@@ -94,9 +107,9 @@ def search_gbif_and_silene_expert(
             max_records=max_records,
         )
 
-        gbif_rows = f_gbif.result()
-        silene_rows = f_silene.result()
-        inaturalist_rows = f_inaturalist.result()
+        gbif_rows = _future_rows("GBIF", f_gbif)
+        silene_rows = _future_rows("Silene Expert", f_silene)
+        inaturalist_rows = _future_rows("iNaturalist", f_inaturalist)
 
     combined = normalize_rows((gbif_rows or []) + (silene_rows or []) + (inaturalist_rows or []))
 

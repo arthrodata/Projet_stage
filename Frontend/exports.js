@@ -3,8 +3,8 @@ console.log("exports.js loaded");
 const API_URL = "http://127.0.0.1:8000";
 const STORAGE_KEY = "biodiversity:last_search_v1";
 const HISTORY_KEY = "biodiversity:search_history_v1";
-const DEFAULT_RESULT_LIMIT = "100";
-const DEFAULT_MAX_EXPORT_PAGES = "50";
+const DEFAULT_RESULT_LIMIT = "300";
+const DEFAULT_MAX_EXPORT_PAGES = "20";
 
 const SOURCE_CONFIG = {
     gbif: {
@@ -145,8 +145,9 @@ function buildDownloadUrl(entry) {
     if (params.dateFrom) query.append("date_from", params.dateFrom);
     if (params.dateTo) query.append("date_to", params.dateTo);
     query.append("limit", params.resultLimit || DEFAULT_RESULT_LIMIT);
-    query.append("max_pages", params.maxPages || DEFAULT_MAX_EXPORT_PAGES);
-    query.append("preview", "1");
+    const maxPages = params.maxPages || DEFAULT_MAX_EXPORT_PAGES;
+    if (maxPages && maxPages !== "50") query.append("max_pages", maxPages);
+    query.append("refresh", String(Date.now()));
     if ((params.source === "inaturalist" || params.source === "both") && params.qualityGrade) {
         query.append("quality_grade", params.qualityGrade);
     }

@@ -102,6 +102,38 @@ class TestCombinedExport(unittest.TestCase):
         self.assertTrue(silene.call_args.kwargs["include_iucn"])
         self.assertTrue(inaturalist.call_args.kwargs["include_iucn"])
 
+    def test_combined_export_keeps_other_sources_when_one_source_fails(self):
+        silene_rows = [
+            {
+                "source_bdd": "Silene Expert",
+                "country": "France",
+                "coordinates": "43.1, 5.1",
+                "eventDate": "2024-02-02",
+                "basisOfRecord": "observation",
+                "datasetName": "Silene Expert",
+                "family": "Felidae",
+                "genus": "Panthera",
+                "species": "Panthera pardus",
+                "iucn_status": "EN",
+                "iucn_lookup_status": "ok",
+            }
+        ]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "combined.csv"
+
+            with patch("Backend.app.services.combined_service.search_gbif", side_effect=RuntimeError("GBIF down")), patch(
+                "Backend.app.services.combined_service.search_silene_expert_mapped", return_value=silene_rows
+            ), patch("Backend.app.services.combined_service.search_inaturalist", return_value=[]), patch(
+                "Backend.app.services.combined_service.logger.exception"
+            ) as log_exception:
+                combined = search_gbif_and_silene_expert(export_file=out, export_csv=True)
+
+            self.assertEqual(len(combined), 1)
+            self.assertEqual(combined[0]["source_bdd"], "Silene Expert")
+            self.assertTrue(out.exists())
+            log_exception.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

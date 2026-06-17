@@ -4,8 +4,8 @@ const API_URL = "http://127.0.0.1:8000";
 const STORAGE_KEY = "biodiversity:last_search_v1";
 const LAST_RESULTS_KEY = "biodiversity_last_results";
 const HISTORY_KEY = "biodiversity:search_history_v1";
-const DEFAULT_RESULT_LIMIT = "100";
-const DEFAULT_MAX_EXPORT_PAGES = "50";
+const DEFAULT_RESULT_LIMIT = "300";
+const DEFAULT_MAX_EXPORT_PAGES = "20";
 
 const searchBtn = document.getElementById("searchBtn");
 const resetBtn = document.getElementById("resetBtn");
@@ -209,10 +209,8 @@ function showDownloadProgress(text, value, percent, indeterminate) {
     downloadProgress.hidden = false;
     downloadProgress.classList.toggle("indeterminate", Boolean(indeterminate));
     downloadProgressText.textContent = text;
-    downloadProgressValue.textContent = value;
-    if (!indeterminate) {
-        downloadProgressBar.style.width = `${Math.max(0, Math.min(100, Number(percent || 0)))}%`;
-    }
+    downloadProgressValue.textContent = indeterminate ? "En cours" : value;
+    downloadProgressBar.style.width = indeterminate ? "40%" : `${Math.max(0, Math.min(100, Number(percent || 0)))}%`;
 }
 
 function hideDownloadProgress() {
@@ -226,10 +224,10 @@ async function downloadBlobWithProgress(url) {
     const startedAt = Date.now();
     let timer = window.setInterval(() => {
         const elapsed = Math.round((Date.now() - startedAt) / 1000);
-        showDownloadProgress(`Preparation du CSV... ${elapsed} s`, "0%", 0, true);
+        showDownloadProgress(`Preparation du CSV... ${elapsed} s`, "En cours", 0, true);
     }, 1000);
 
-    showDownloadProgress("Preparation du CSV...", "0%", 0, true);
+    showDownloadProgress("Preparation du CSV...", "En cours", 0, true);
     let response;
     try {
         response = await fetch(url);
@@ -428,8 +426,8 @@ exportBtn.addEventListener("click", function () {
 
     let url = "";
     let defaultFilename = "resultats.csv";
-    params.set("preview", "1");
     if (maxPages !== "") params.set("max_pages", maxPages);
+    params.set("refresh", String(Date.now()));
 
     if (source === "gbif") {
         url = `${API_URL}/search/csv?${params.toString()}`;

@@ -10,6 +10,9 @@ from fastapi.responses import FileResponse
 from Backend.app.utils.row_normalization import CSV_EXPORT_COLUMNS, normalize_rows
 
 
+EXPORT_CACHE_VERSION = "2"
+
+
 def _meta_path(csv_path: Path) -> Path:
     return csv_path.with_name(f"{csv_path.name}.meta.json")
 
@@ -23,6 +26,7 @@ def _normalize_value(value: Any) -> str:
 def export_signature(source: str, **params: Any) -> dict[str, str]:
     return {
         "source": _normalize_value(source),
+        "cache_version": EXPORT_CACHE_VERSION,
         **{key: _normalize_value(value) for key, value in sorted(params.items())},
     }
 

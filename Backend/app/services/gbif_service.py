@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from datetime import date
+import time
 import pandas as pd
 import requests
 
@@ -18,6 +19,10 @@ TARGET_BASIS_OF_RECORD = "HUMAN_OBSERVATION"
 GBIF_SPECIES_MATCH_URL = "https://api.gbif.org/v1/species/match"
 GBIF_COUNTRIES_URL = "https://api.gbif.org/v1/enumeration/country"
 EXPORT_COLUMNS = STANDARD_COLUMNS
+GBIF_OCCURRENCE_SEARCH_URL = "https://api.gbif.org/v1/occurrence/search"
+GBIF_MAX_PAGE_LIMIT = 300
+TRANSIENT_STATUS_CODES = {429, 500, 502, 503, 504}
+TRANSIENT_REQUEST_EXCEPTIONS = (requests.Timeout, requests.ConnectionError)
 
 
 def get_country_code(country):
@@ -97,6 +102,48 @@ def get_gbif_taxon_key(name: str, rank: str) -> int | None:
     return int(key) if isinstance(key, int) else None
 
 
+def _apply_most_specific_taxon_filter(
+    params: dict,
+    q_parts: list[str],
+    *,
+    family: str | None = None,
+    genus: str | None = None,
+    species: str | None = None,
+) -> str | None:
+    """
+    GBIF accepts a single taxonKey. Use the most specific user filter so
+    pagination is spent on the requested taxon, not on a broader parent group.
+    """
+    if species and str(species).strip():
+        species_value = str(species).strip()
+        species_key = get_gbif_taxon_key(species_value, "SPECIES")
+        if species_key:
+            params["taxonKey"] = species_key
+        else:
+            q_parts.append(species_value)
+        return "species"
+
+    if genus and str(genus).strip():
+        genus_value = str(genus).strip()
+        genus_key = get_gbif_taxon_key(genus_value, "GENUS")
+        if genus_key:
+            params["taxonKey"] = genus_key
+        else:
+            q_parts.append(genus_value)
+        return "genus"
+
+    if family and str(family).strip():
+        family_value = str(family).strip()
+        family_key = get_gbif_family_key(family_value)
+        if family_key:
+            params["taxonKey"] = family_key
+        else:
+            q_parts.append(family_value)
+        return "family"
+
+    return None
+
+
 def _format_coordinates(row):
     latitude = row.get("decimalLatitude")
     longitude = row.get("decimalLongitude")
@@ -153,7 +200,8 @@ def search_gbif(
     max_pages: int | None = None,
     max_records: int | None = None,
 ):
-    safe_limit = int(limit) if limit and int(limit) > 0 else 100
+    requested_limit = int(limit) if limit and int(limit) > 0 else 100
+    safe_limit = min(requested_limit, GBIF_MAX_PAGE_LIMIT)
     safe_page = int(page) if page and int(page) > 0 else 1
 
     params = {"basisOfRecord": TARGET_BASIS_OF_RECORD, "limit": safe_limit}
@@ -166,27 +214,7 @@ def search_gbif(
     if date_from and date_to:
         params["eventDate"] = f"{date_from.isoformat()},{date_to.isoformat()}"
 
-    if family:
-        family_key = get_gbif_family_key(family)
-        if family_key:
-            params["taxonKey"] = family_key
-        else:
-            params["q"] = family
-
-    # Prefer GBIF taxonKey when possible (much faster than broad q= searches)
-    if species:
-        species_key = get_gbif_taxon_key(species, "SPECIES")
-        if species_key:
-            params["taxonKey"] = species_key
-        else:
-            q_parts.append(species)
-
-    if genus and "taxonKey" not in params:
-        genus_key = get_gbif_taxon_key(genus, "GENUS")
-        if genus_key:
-            params["taxonKey"] = genus_key
-        else:
-            q_parts.append(genus)
+    selected_taxon_rank = _apply_most_specific_taxon_filter(params, q_parts, family=family, genus=genus, species=species)
 
     if country:
         country_code = get_country_code(country)
@@ -197,16 +225,35 @@ def search_gbif(
         params["q"] = " ".join(q_parts)
 
     def fetch_page(offset: int) -> dict:
-        session = requests.Session()
-        session.trust_env = False
-        r = session.get(
-            "https://api.gbif.org/v1/occurrence/search",
-            params={**params, "offset": int(offset)},
-            timeout=30,
-        )
-        r.raise_for_status()
-        data = r.json()
-        return data if isinstance(data, dict) else {}
+        last_error: requests.RequestException | None = None
+        for attempt in range(3):
+            session = requests.Session()
+            session.trust_env = False
+            try:
+                r = session.get(
+                    GBIF_OCCURRENCE_SEARCH_URL,
+                    params={**params, "offset": int(offset)},
+                    timeout=30,
+                )
+                if getattr(r, "status_code", None) in TRANSIENT_STATUS_CODES and attempt < 2:
+                    time.sleep(0.5 * (attempt + 1))
+                    continue
+                r.raise_for_status()
+                data = r.json()
+                return data if isinstance(data, dict) else {}
+            except requests.RequestException as exc:
+                last_error = exc
+                status_code = getattr(getattr(exc, "response", None), "status_code", None)
+                is_transient_exception = isinstance(exc, TRANSIENT_REQUEST_EXCEPTIONS)
+                if (
+                    not is_transient_exception
+                    and status_code not in TRANSIENT_STATUS_CODES
+                ) or attempt >= 2:
+                    raise
+                time.sleep(0.5 * (attempt + 1))
+        if last_error:
+            raise last_error
+        return {}
 
     if fetch_all:
         offset = 0
@@ -259,7 +306,7 @@ def search_gbif(
         ]
     if country and not country_code:
         df = df[df["country"].str.contains(country, case=False, na=False)]
-    if family:
+    if family and selected_taxon_rank not in {"genus", "species"}:
         df = df[df["family"].str.contains(family, case=False, na=False)]
 
     # Filtre date (avant enrichment IUCN pour limiter les appels)
@@ -305,26 +352,7 @@ def estimate_gbif_count(
     params = {"basisOfRecord": TARGET_BASIS_OF_RECORD, "limit": 0, "offset": 0}
     q_parts: list[str] = []
 
-    if family:
-        family_key = get_gbif_family_key(family)
-        if family_key:
-            params["taxonKey"] = family_key
-        else:
-            params["q"] = family
-
-    if species:
-        species_key = get_gbif_taxon_key(species, "SPECIES")
-        if species_key:
-            params["taxonKey"] = species_key
-        else:
-            q_parts.append(species)
-
-    if genus and "taxonKey" not in params:
-        genus_key = get_gbif_taxon_key(genus, "GENUS")
-        if genus_key:
-            params["taxonKey"] = genus_key
-        else:
-            q_parts.append(genus)
+    _apply_most_specific_taxon_filter(params, q_parts, family=family, genus=genus, species=species)
 
     if country:
         country_code = get_country_code(country)
