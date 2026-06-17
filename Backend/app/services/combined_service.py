@@ -57,7 +57,7 @@ def search_gbif_and_silene_expert(
     """
     effective_export_file = export_file or COMBINED_EXPORT_FILE
 
-    with ThreadPoolExecutor(max_workers=2) as executor:
+    with ThreadPoolExecutor(max_workers=3) as executor:
         f_gbif = executor.submit(
             search_gbif,
             family=family,

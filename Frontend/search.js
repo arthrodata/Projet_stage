@@ -427,7 +427,6 @@ exportBtn.addEventListener("click", function () {
     let url = "";
     let defaultFilename = "resultats.csv";
     if (maxPages !== "") params.set("max_pages", maxPages);
-    params.set("refresh", String(Date.now()));
 
     if (source === "gbif") {
         url = `${API_URL}/search/csv?${params.toString()}`;
