@@ -47,6 +47,21 @@ function setActiveSource(source) {
     syncSourceCards();
 }
 
+function hasSearchCriteria() {
+    return [familyInput, speciesInput, genusInput, countryInput, dateFromInput, dateToInput]
+        .filter(Boolean)
+        .some((input) => String(input.value || "").trim() !== "");
+}
+
+function handleSourceChange(source) {
+    setActiveSource(source);
+    if (hasSearchCriteria()) {
+        window.setTimeout(runSearch, 0);
+    } else {
+        setMessage("Source selected. Add filters and run analysis.", "neutral");
+    }
+}
+
 function removeLegacySearchWidget() {
     const legacyInput = document.querySelector('input[placeholder^="Search species"]');
     if (!legacyInput) return;
@@ -399,12 +414,12 @@ async function runSearch() {
 
 sourceCards.forEach((card) => {
     card.addEventListener("click", () => {
-        setActiveSource(card.dataset.source || "gbif");
+        handleSourceChange(card.dataset.source || "gbif");
     });
 });
 
 if (sourceSelect) {
-    sourceSelect.addEventListener("change", () => setActiveSource(sourceSelect.value));
+    sourceSelect.addEventListener("change", () => handleSourceChange(sourceSelect.value));
 }
 
 searchBtn.addEventListener("click", runSearch);

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 import logging
 import os
@@ -288,23 +289,40 @@ def _search_steli_via_gbif(
         return [record for record in records if isinstance(record, dict)], end_of_records
 
     if fetch_all:
-        records: list[dict[str, Any]] = []
-        current_page = 1
-        pages = 0
-        while True:
-            batch, end_of_records = fetch_page(current_page)
-            if not batch:
-                break
-            records.extend(batch)
-            pages += 1
-            if end_of_records:
-                break
-            if max_pages is not None and pages >= int(max_pages):
-                break
-            if max_records is not None and len(records) >= int(max_records):
-                records = records[: int(max_records)]
-                break
-            current_page += 1
+        first_batch, first_end = fetch_page(1)
+        records: list[dict[str, Any]] = list(first_batch)
+
+        page_cap = int(max_pages) if max_pages is not None else None
+        if max_records is not None:
+            record_pages = (int(max_records) + limit - 1) // limit
+            page_cap = min(page_cap, record_pages) if page_cap is not None else record_pages
+
+        if first_batch and not first_end and page_cap is not None and page_cap > 1:
+            page_numbers = list(range(2, page_cap + 1))
+            workers = min(8, len(page_numbers)) if page_numbers else 0
+            if workers:
+                with ThreadPoolExecutor(max_workers=workers) as executor:
+                    page_payloads = list(executor.map(fetch_page, page_numbers))
+                for batch, end_of_records in page_payloads:
+                    if batch:
+                        records.extend(batch)
+                    if end_of_records:
+                        break
+        elif first_batch and not first_end and page_cap is None:
+            current_page = 2
+            while True:
+                batch, end_of_records = fetch_page(current_page)
+                if not batch:
+                    break
+                records.extend(batch)
+                if end_of_records:
+                    break
+                if max_records is not None and len(records) >= int(max_records):
+                    break
+                current_page += 1
+
+        if max_records is not None and len(records) >= int(max_records):
+            records = records[: int(max_records)]
     else:
         records, _ = fetch_page(page)
 

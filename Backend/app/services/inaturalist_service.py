@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from functools import lru_cache
 from pathlib import Path
@@ -305,7 +306,7 @@ def search_inaturalist(
     if country_place_id:
         params["place_id"] = country_place_id
 
-    def fetch_page(page_number: int) -> list[dict[str, Any]]:
+    def fetch_page(page_number: int) -> tuple[list[dict[str, Any]], int | None]:
         response = _session().get(
             f"{INATURALIST_API_BASE_URL}/observations",
             params={**params, "page": int(page_number)},
@@ -314,28 +315,52 @@ def search_inaturalist(
         response.raise_for_status()
         payload = response.json()
         results = payload.get("results") if isinstance(payload, dict) else None
-        return [item for item in results if isinstance(item, dict)] if isinstance(results, list) else []
+        total_results = payload.get("total_results") if isinstance(payload, dict) else None
+        total = int(total_results) if isinstance(total_results, int) else None
+        rows = [item for item in results if isinstance(item, dict)] if isinstance(results, list) else []
+        return rows, total
 
     observations: list[dict[str, Any]] = []
     if fetch_all:
-        current_page = 1
-        pages = 0
-        while True:
-            batch = fetch_page(current_page)
-            if not batch:
-                break
-            observations.extend(batch)
-            if max_records is not None and len(observations) >= int(max_records):
-                observations = observations[: int(max_records)]
-                break
-            if len(batch) < safe_limit:
-                break
-            current_page += 1
-            pages += 1
-            if max_pages is not None and pages >= int(max_pages):
-                break
+        first_batch, total_results = fetch_page(1)
+        observations.extend(first_batch)
+
+        page_cap = int(max_pages) if max_pages is not None else None
+        if max_records is not None:
+            record_pages = (int(max_records) + safe_limit - 1) // safe_limit
+            page_cap = min(page_cap, record_pages) if page_cap is not None else record_pages
+        if total_results is not None:
+            count_pages = (int(total_results) + safe_limit - 1) // safe_limit
+            page_cap = min(page_cap, count_pages) if page_cap is not None else count_pages
+
+        if first_batch and len(first_batch) >= safe_limit and page_cap is not None and page_cap > 1:
+            page_numbers = list(range(2, page_cap + 1))
+            workers = min(8, len(page_numbers)) if page_numbers else 0
+            if workers:
+                with ThreadPoolExecutor(max_workers=workers) as executor:
+                    page_payloads = list(executor.map(fetch_page, page_numbers))
+                for batch, _ in page_payloads:
+                    if batch:
+                        observations.extend(batch)
+                    if len(batch) < safe_limit:
+                        break
+        elif first_batch and len(first_batch) >= safe_limit and page_cap is None:
+            current_page = 2
+            while True:
+                batch, _ = fetch_page(current_page)
+                if not batch:
+                    break
+                observations.extend(batch)
+                if len(batch) < safe_limit:
+                    break
+                if max_records is not None and len(observations) >= int(max_records):
+                    break
+                current_page += 1
+
+        if max_records is not None and len(observations) >= int(max_records):
+            observations = observations[: int(max_records)]
     else:
-        observations = fetch_page(safe_page)
+        observations, _ = fetch_page(safe_page)
 
     all_place_ids = tuple(
         place_id

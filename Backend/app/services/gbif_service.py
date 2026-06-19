@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 import time
 import pandas as pd
@@ -256,24 +257,48 @@ def search_gbif(
         return {}
 
     if fetch_all:
-        offset = 0
-        pages = 0
-        all_results: list[dict] = []
-        while True:
-            data = fetch_page(offset=offset)
-            results = data.get("results") if isinstance(data.get("results"), list) else []
-            if not results:
-                break
-            all_results.extend(results)
-            if data.get("endOfRecords") is True:
-                break
-            pages += 1
-            if max_pages is not None and pages >= int(max_pages):
-                break
-            if max_records is not None and len(all_results) >= int(max_records):
-                all_results = all_results[: int(max_records)]
-                break
-            offset += safe_limit
+        first_data = fetch_page(offset=0)
+        first_results = first_data.get("results") if isinstance(first_data.get("results"), list) else []
+        all_results: list[dict] = list(first_results)
+
+        page_cap = int(max_pages) if max_pages is not None else None
+        if max_records is not None:
+            record_pages = (int(max_records) + safe_limit - 1) // safe_limit
+            page_cap = min(page_cap, record_pages) if page_cap is not None else record_pages
+
+        if first_results and first_data.get("endOfRecords") is not True and (page_cap is None or page_cap > 1):
+            if isinstance(first_data.get("count"), int):
+                count_pages = (int(first_data["count"]) + safe_limit - 1) // safe_limit
+                page_cap = min(page_cap, count_pages) if page_cap is not None else count_pages
+
+            if page_cap is not None:
+                offsets = [page_number * safe_limit for page_number in range(1, max(1, page_cap))]
+                workers = min(8, len(offsets)) if offsets else 0
+                if workers:
+                    with ThreadPoolExecutor(max_workers=workers) as executor:
+                        page_payloads = list(executor.map(fetch_page, offsets))
+                    for data in page_payloads:
+                        results = data.get("results") if isinstance(data.get("results"), list) else []
+                        if results:
+                            all_results.extend(results)
+                        if data.get("endOfRecords") is True:
+                            break
+            else:
+                offset = safe_limit
+                while True:
+                    data = fetch_page(offset=offset)
+                    results = data.get("results") if isinstance(data.get("results"), list) else []
+                    if not results:
+                        break
+                    all_results.extend(results)
+                    if data.get("endOfRecords") is True:
+                        break
+                    if max_records is not None and len(all_results) >= int(max_records):
+                        break
+                    offset += safe_limit
+
+        if max_records is not None and len(all_results) >= int(max_records):
+            all_results = all_results[: int(max_records)]
         df = pd.DataFrame(all_results)
     else:
         offset = (safe_page - 1) * safe_limit

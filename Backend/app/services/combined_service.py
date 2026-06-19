@@ -8,6 +8,7 @@ from typing import Any, Optional
 
 import pandas as pd
 
+from Backend.app.services.iucn_service import IUCN_EMPTY_STATUS, get_iucn_enrichments
 from Backend.app.services.gbif_service import search_gbif
 from Backend.app.services.inaturalist_service import search_inaturalist
 from Backend.app.services.silene_expert_service import search_silene_expert_mapped
@@ -35,6 +36,33 @@ def _future_rows(source_name: str, future) -> list[dict[str, Any]]:
     return rows or []
 
 
+def _enrich_combined_iucn(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if not rows:
+        return rows
+
+    species_names = [
+        str(row.get("species") or "").strip()
+        for row in rows
+        if str(row.get("species") or "").strip()
+        and str(row.get("species") or "").strip() != "Non renseigne"
+    ]
+    enrichments = get_iucn_enrichments(species_names)
+
+    for row in rows:
+        species_name = str(row.get("species") or "").strip()
+        enrichment = enrichments.get(species_name, {})
+        status = enrichment.get("iucn_status") or IUCN_EMPTY_STATUS
+        row["iucn_status"] = status
+        row["iucn_lookup_status"] = enrichment.get("iucn_lookup_status") or ""
+        row["iucn_assessment_id"] = enrichment.get("iucn_assessment_id") or ""
+        row["iucn_year"] = enrichment.get("iucn_year") or ""
+        row["iucn_scope"] = enrichment.get("iucn_scope") or ""
+        row["status"] = status
+        row["redListCategory"] = status
+
+    return rows
+
+
 def search_gbif_and_silene_expert(
     family: Optional[str] = None,
     genus: Optional[str] = None,
@@ -57,6 +85,7 @@ def search_gbif_and_silene_expert(
     Recherche GBIF + Silene Expert + iNaturalist + STELI en parallele et exporte UN SEUL CSV.
     """
     effective_export_file = export_file or COMBINED_EXPORT_FILE
+    enrich_after_merge = bool(include_iucn)
 
     with ThreadPoolExecutor(max_workers=4) as executor:
         f_gbif = executor.submit(
@@ -70,7 +99,7 @@ def search_gbif_and_silene_expert(
             limit=limit,
             export_csv=False,
             fetch_all=fetch_all,
-            include_iucn=include_iucn,
+            include_iucn=False if enrich_after_merge else include_iucn,
             max_pages=max_pages,
             max_records=max_records,
         )
@@ -86,7 +115,7 @@ def search_gbif_and_silene_expert(
             page=1 if fetch_all else page,
             export_csv=False,
             fetch_all=fetch_all,
-            include_iucn=include_iucn,
+            include_iucn=False if enrich_after_merge else include_iucn,
             max_pages=max_pages,
             max_records=max_records,
         )
@@ -103,7 +132,7 @@ def search_gbif_and_silene_expert(
             page=1 if fetch_all else page,
             export_csv=False,
             fetch_all=fetch_all,
-            include_iucn=include_iucn,
+            include_iucn=False if enrich_after_merge else include_iucn,
             max_pages=max_pages,
             max_records=max_records,
         )
@@ -121,13 +150,20 @@ def search_gbif_and_silene_expert(
             fetch_all=fetch_all,
             max_pages=max_pages,
             max_records=max_records,
-            include_iucn=include_iucn,
+            include_iucn=False if enrich_after_merge else include_iucn,
         )
 
         gbif_rows = _future_rows("GBIF", f_gbif)
         silene_rows = _future_rows("Silene Expert", f_silene)
         inaturalist_rows = _future_rows("iNaturalist", f_inaturalist)
         steli_rows = _future_rows("STELI", f_steli)
+
+    if enrich_after_merge:
+        all_rows = _enrich_combined_iucn((gbif_rows or []) + (silene_rows or []) + (inaturalist_rows or []) + (steli_rows or []))
+        gbif_rows = [row for row in all_rows if row.get("source_bdd") == "GBIF"]
+        silene_rows = [row for row in all_rows if row.get("source_bdd") == "Silene Expert"]
+        inaturalist_rows = [row for row in all_rows if row.get("source_bdd") == "iNaturalist"]
+        steli_rows = [row for row in all_rows if row.get("source_bdd") == "STELI"]
 
     combined = normalize_rows((gbif_rows or []) + (silene_rows or []) + (inaturalist_rows or []) + (steli_rows or []))
 
