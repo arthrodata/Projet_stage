@@ -11,6 +11,7 @@ import pandas as pd
 from Backend.app.services.gbif_service import search_gbif
 from Backend.app.services.inaturalist_service import search_inaturalist
 from Backend.app.services.silene_expert_service import search_silene_expert_mapped
+from Backend.app.services.steli_service import search_steli
 from Backend.app.utils.row_normalization import CSV_EXPORT_COLUMNS, STANDARD_COLUMNS, normalize_dataframe, normalize_rows
 
 
@@ -53,11 +54,11 @@ def search_gbif_and_silene_expert(
     max_records: int | None = None,
 ) -> list[dict[str, Any]]:
     """
-    Recherche GBIF + Silene Expert + iNaturalist en parallele et exporte UN SEUL CSV.
+    Recherche GBIF + Silene Expert + iNaturalist + STELI en parallele et exporte UN SEUL CSV.
     """
     effective_export_file = export_file or COMBINED_EXPORT_FILE
 
-    with ThreadPoolExecutor(max_workers=3) as executor:
+    with ThreadPoolExecutor(max_workers=4) as executor:
         f_gbif = executor.submit(
             search_gbif,
             family=family,
@@ -106,16 +107,32 @@ def search_gbif_and_silene_expert(
             max_pages=max_pages,
             max_records=max_records,
         )
+        f_steli = executor.submit(
+            search_steli,
+            family=family,
+            genus=genus,
+            species=species,
+            country=country,
+            start_date=date_from,
+            end_date=date_to,
+            limit=limit,
+            page=1 if fetch_all else page,
+            export_csv=False,
+            fetch_all=fetch_all,
+            max_pages=max_pages,
+            max_records=max_records,
+        )
 
         gbif_rows = _future_rows("GBIF", f_gbif)
         silene_rows = _future_rows("Silene Expert", f_silene)
         inaturalist_rows = _future_rows("iNaturalist", f_inaturalist)
+        steli_rows = _future_rows("STELI", f_steli)
 
-    combined = normalize_rows((gbif_rows or []) + (silene_rows or []) + (inaturalist_rows or []))
+    combined = normalize_rows((gbif_rows or []) + (silene_rows or []) + (inaturalist_rows or []) + (steli_rows or []))
 
     if export_csv:
         df = pd.concat(
-            [_normalize_rows(gbif_rows), _normalize_rows(silene_rows), _normalize_rows(inaturalist_rows)],
+            [_normalize_rows(gbif_rows), _normalize_rows(silene_rows), _normalize_rows(inaturalist_rows), _normalize_rows(steli_rows)],
             ignore_index=True,
         )
         effective_export_file.parent.mkdir(parents=True, exist_ok=True)

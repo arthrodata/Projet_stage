@@ -32,6 +32,20 @@ const dateFromInput = document.getElementById("dateFrom");
 const dateToInput = document.getElementById("dateTo");
 const qualityGradeInput = document.getElementById("qualityGrade");
 const sourceHint = document.getElementById("sourceHint");
+let activeSource = "gbif";
+
+function normalizeSource(value) {
+    const source = String(value || "").trim();
+    if (source === "combined") return "both";
+    if (["gbif", "silene_expert", "inaturalist", "steli", "both"].includes(source)) return source;
+    return "gbif";
+}
+
+function setActiveSource(source) {
+    activeSource = normalizeSource(source);
+    if (sourceSelect) sourceSelect.value = activeSource;
+    syncSourceCards();
+}
 
 function removeLegacySearchWidget() {
     const legacyInput = document.querySelector('input[placeholder^="Search species"]');
@@ -56,7 +70,7 @@ function setLoading(isLoading) {
 }
 
 function getQueryParams() {
-    const source = ((sourceSelect && sourceSelect.value) || "gbif").trim();
+    const source = normalizeSource(activeSource || (sourceSelect && sourceSelect.value));
     const family = familyInput.value.trim();
     const species = speciesInput.value.trim();
     const genus = genusInput.value.trim();
@@ -165,7 +179,8 @@ function restoreLastSearch() {
         if (!saved || !Array.isArray(saved.data)) return;
 
         if (saved.params) {
-            if (sourceSelect) sourceSelect.value = saved.params.source || "gbif";
+            activeSource = normalizeSource(saved.params.source || "gbif");
+            if (sourceSelect) sourceSelect.value = activeSource;
             familyInput.value = saved.params.family || "";
             speciesInput.value = saved.params.species || "";
             genusInput.value = saved.params.genus || "";
@@ -289,12 +304,16 @@ async function downloadBlobWithProgress(url) {
 }
 
 function syncSourceCards() {
-    const activeSource = ((sourceSelect && sourceSelect.value) || "gbif").trim();
+    const currentSource = normalizeSource(activeSource || (sourceSelect && sourceSelect.value));
+    activeSource = currentSource;
+    if (sourceSelect) sourceSelect.value = currentSource;
     sourceCards.forEach((card) => {
-        card.classList.toggle("active", card.dataset.source === activeSource);
+        const isActive = normalizeSource(card.dataset.source) === currentSource;
+        card.classList.toggle("active", isActive);
+        card.setAttribute("aria-pressed", isActive ? "true" : "false");
     });
     if (qualityGradeInput) {
-        qualityGradeInput.disabled = activeSource !== "inaturalist" && activeSource !== "both";
+        qualityGradeInput.disabled = currentSource !== "inaturalist" && currentSource !== "both";
     }
     if (sourceHint) {
         const labels = {
@@ -302,9 +321,9 @@ function syncSourceCards() {
             silene_expert: "Silene Expert search with automatic token refresh.",
             inaturalist: "iNaturalist observations with selectable quality grade.",
             steli: "STELI odonate monitoring via OpenObs/INPN when an endpoint is configured.",
-            both: "Combined export runs GBIF, Silene Expert and iNaturalist in parallel.",
+            both: "Combined export runs GBIF, Silene Expert, iNaturalist and STELI in parallel.",
         };
-        sourceHint.textContent = labels[activeSource] || labels.gbif;
+        sourceHint.textContent = labels[currentSource] || labels.gbif;
     }
 }
 
@@ -377,14 +396,12 @@ async function runSearch() {
 
 sourceCards.forEach((card) => {
     card.addEventListener("click", () => {
-        if (!sourceSelect) return;
-        sourceSelect.value = card.dataset.source || "gbif";
-        syncSourceCards();
+        setActiveSource(card.dataset.source || "gbif");
     });
 });
 
 if (sourceSelect) {
-    sourceSelect.addEventListener("change", syncSourceCards);
+    sourceSelect.addEventListener("change", () => setActiveSource(sourceSelect.value));
 }
 
 searchBtn.addEventListener("click", runSearch);
@@ -399,7 +416,7 @@ searchBtn.addEventListener("click", runSearch);
 });
 
 resetBtn.addEventListener("click", function () {
-    if (sourceSelect) sourceSelect.value = "gbif";
+    setActiveSource("gbif");
     familyInput.value = "";
     speciesInput.value = "";
     genusInput.value = "";

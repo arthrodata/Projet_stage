@@ -54,6 +54,19 @@ class TestCombinedExport(unittest.TestCase):
                 "iucn_lookup_status": "ok",
             }
         ]
+        steli_rows = [
+            {
+                "source_bdd": "STELI",
+                "country": "France",
+                "coordinates": "43.3, 5.3",
+                "eventDate": "2024-04-04",
+                "basisOfRecord": "HUMAN_OBSERVATION",
+                "datasetName": "Suivi Temporel des Libellules",
+                "family": "Aeshnidae",
+                "genus": "Aeshna",
+                "species": "Aeshna cyanea",
+            }
+        ]
 
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "combined.csv"
@@ -62,10 +75,12 @@ class TestCombinedExport(unittest.TestCase):
                 "Backend.app.services.combined_service.search_silene_expert_mapped", return_value=silene_rows
             ), patch(
                 "Backend.app.services.combined_service.search_inaturalist", return_value=inaturalist_rows
+            ), patch(
+                "Backend.app.services.combined_service.search_steli", return_value=steli_rows
             ):
                 combined = search_gbif_and_silene_expert(export_file=out, export_csv=True)
 
-            self.assertEqual(len(combined), 3)
+            self.assertEqual(len(combined), 4)
             self.assertTrue(out.exists())
 
             with out.open("r", encoding="utf-8-sig", newline="") as f:
@@ -77,30 +92,37 @@ class TestCombinedExport(unittest.TestCase):
                 self.assertNotIn("iucn_lookup_status", reader.fieldnames)
                 self.assertNotIn("redListCategory", reader.fieldnames)
                 rows = list(reader)
-                self.assertEqual(len(rows), 3)
+                self.assertEqual(len(rows), 4)
 
     def test_passes_limit_to_both_sources(self):
         with patch("Backend.app.services.combined_service.search_gbif", return_value=[]) as gbif, patch(
             "Backend.app.services.combined_service.search_silene_expert_mapped", return_value=[]
-        ) as silene, patch("Backend.app.services.combined_service.search_inaturalist", return_value=[]) as inaturalist:
+        ) as silene, patch("Backend.app.services.combined_service.search_inaturalist", return_value=[]) as inaturalist, patch(
+            "Backend.app.services.combined_service.search_steli", return_value=[]
+        ) as steli:
             search_gbif_and_silene_expert(limit=250, quality_grade="research,needs_id", export_csv=False)
 
         self.assertEqual(gbif.call_args.kwargs["limit"], 250)
         self.assertEqual(silene.call_args.kwargs["limit"], 250)
         self.assertEqual(inaturalist.call_args.kwargs["limit"], 250)
+        self.assertEqual(steli.call_args.kwargs["limit"], 250)
         self.assertEqual(inaturalist.call_args.kwargs["quality_grade"], "research,needs_id")
         self.assertNotIn("quality_grade", gbif.call_args.kwargs)
         self.assertNotIn("quality_grade", silene.call_args.kwargs)
+        self.assertNotIn("quality_grade", steli.call_args.kwargs)
 
     def test_passes_iucn_enrichment_flag_to_all_sources(self):
         with patch("Backend.app.services.combined_service.search_gbif", return_value=[]) as gbif, patch(
             "Backend.app.services.combined_service.search_silene_expert_mapped", return_value=[]
-        ) as silene, patch("Backend.app.services.combined_service.search_inaturalist", return_value=[]) as inaturalist:
+        ) as silene, patch("Backend.app.services.combined_service.search_inaturalist", return_value=[]) as inaturalist, patch(
+            "Backend.app.services.combined_service.search_steli", return_value=[]
+        ) as steli:
             search_gbif_and_silene_expert(include_iucn=True, export_csv=False)
 
         self.assertTrue(gbif.call_args.kwargs["include_iucn"])
         self.assertTrue(silene.call_args.kwargs["include_iucn"])
         self.assertTrue(inaturalist.call_args.kwargs["include_iucn"])
+        self.assertNotIn("include_iucn", steli.call_args.kwargs)
 
     def test_combined_export_keeps_other_sources_when_one_source_fails(self):
         silene_rows = [
@@ -125,6 +147,8 @@ class TestCombinedExport(unittest.TestCase):
             with patch("Backend.app.services.combined_service.search_gbif", side_effect=RuntimeError("GBIF down")), patch(
                 "Backend.app.services.combined_service.search_silene_expert_mapped", return_value=silene_rows
             ), patch("Backend.app.services.combined_service.search_inaturalist", return_value=[]), patch(
+                "Backend.app.services.combined_service.search_steli", return_value=[]
+            ), patch(
                 "Backend.app.services.combined_service.logger.exception"
             ) as log_exception:
                 combined = search_gbif_and_silene_expert(export_file=out, export_csv=True)

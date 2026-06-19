@@ -1,6 +1,6 @@
 const STORAGE_KEY = "biodiversity:last_search_v1";
 const LAST_RESULTS_KEY = "biodiversity_last_results";
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = "http://127.0.0.1:8001";
 const IGNORED_SPECIES = new Set(["unknown", "non renseign\u00e9", "non renseigne", "not provided"]);
 const SPECIES_COLORS = ["#2563eb", "#059669", "#7c3aed", "#f97316", "#dc2626"];
 const GEO_COUNTRY_COLORS = ["#2563eb", "#059669", "#7c3aed", "#f97316", "#dc2626"];
