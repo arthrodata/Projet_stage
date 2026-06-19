@@ -1,6 +1,8 @@
 const STORAGE_KEY = "biodiversity:last_search_v1";
 const LAST_RESULTS_KEY = "biodiversity_last_results";
-const API_URL = "http://127.0.0.1:8001";
+const API_URL = "http://127.0.0.1:8000";
+const CONNECTED_SOURCES = ["GBIF", "Silene Expert", "iNaturalist", "STELI"];
+const CSV_EXPORTS = ["GBIF", "Silene Expert", "iNaturalist", "STELI", "Combined"];
 const IGNORED_SPECIES = new Set(["unknown", "non renseign\u00e9", "non renseigne", "not provided"]);
 const SPECIES_COLORS = ["#2563eb", "#059669", "#7c3aed", "#f97316", "#dc2626"];
 const GEO_COUNTRY_COLORS = ["#2563eb", "#059669", "#7c3aed", "#f97316", "#dc2626"];
@@ -281,14 +283,22 @@ function uniqNonEmpty(values) {
 }
 
 function readLastSearch() {
-    const rawResults = localStorage.getItem(LAST_RESULTS_KEY);
-    const savedResults = rawResults ? safeParseJson(rawResults) : null;
-    if (Array.isArray(savedResults)) return { data: savedResults };
-    if (savedResults && Array.isArray(savedResults.data)) return savedResults;
-
     const rawLegacy = localStorage.getItem(STORAGE_KEY);
     const savedLegacy = rawLegacy ? safeParseJson(rawLegacy) : null;
-    return savedLegacy && Array.isArray(savedLegacy.data) ? savedLegacy : null;
+
+    const rawResults = localStorage.getItem(LAST_RESULTS_KEY);
+    const savedResults = rawResults ? safeParseJson(rawResults) : null;
+    const resultsData = Array.isArray(savedResults)
+        ? savedResults
+        : savedResults && Array.isArray(savedResults.data)
+          ? savedResults.data
+          : null;
+
+    if (savedLegacy && Array.isArray(savedLegacy.data)) {
+        return resultsData ? { ...savedLegacy, data: resultsData } : savedLegacy;
+    }
+    if (resultsData) return { data: resultsData, savedAt: "" };
+    return null;
 }
 
 function normalizeSpecies(value) {
@@ -613,27 +623,48 @@ async function readServerLastSearch() {
     return Array.isArray(history) && history.length > 0 ? history[0] : null;
 }
 
+function searchTimestamp(entry) {
+    const raw = entry && (entry.savedAt || entry.created_at || entry.createdAt || entry.timestamp);
+    const timestamp = raw ? Date.parse(raw) : 0;
+    return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+async function readLatestSearch() {
+    const localSearch = readLastSearch();
+    let serverSearch = null;
+    try {
+        serverSearch = await readServerLastSearch();
+    } catch (error) {
+        console.error(error);
+    }
+
+    if (!serverSearch) return localSearch;
+    if (!localSearch) return serverSearch;
+    return searchTimestamp(localSearch) > searchTimestamp(serverSearch) ? localSearch : serverSearch;
+}
+
+let refreshTimer = null;
+
+function scheduleDashboardRefresh() {
+    window.clearTimeout(refreshTimer);
+    refreshTimer = window.setTimeout(initDashboard, 100);
+}
+
 async function initDashboard() {
     const msg = document.getElementById("dashMessage");
 
     try {
         if (window.location && window.location.protocol === "file:") {
-            if (msg) msg.textContent = "Ouvre la page via http://127.0.0.1:8001 pour lire la derniere recherche.";
+            if (msg) msg.textContent = "Ouvre la page via http://127.0.0.1:8000 pour lire la derniere recherche.";
         } else if (msg) {
             msg.textContent = "Chargement...";
         }
 
-        let saved = null;
-        try {
-            saved = await readServerLastSearch();
-        } catch (error) {
-            console.error(error);
-            saved = readLastSearch();
-        }
+        const saved = await readLatestSearch();
         const data = saved && Array.isArray(saved.data) ? saved.data : [];
 
-        const connectedSources = 3;
-        const csvExports = 4;
+        const connectedSources = CONNECTED_SOURCES.length;
+        const csvExports = CSV_EXPORTS.length;
 
         const occurrences = data.length;
         const uniqueSpecies = uniqNonEmpty(data.map((item) => item && item.species)).size;
@@ -645,8 +676,9 @@ async function initDashboard() {
         setText("statSpecies", formatNumber(uniqueSpecies));
         setText(
             "statSourcesMeta",
-            occurrences > 0 ? `${formatNumber(detectedSources)} source(s) detectee(s)` : "3 configurees"
+            occurrences > 0 ? `${formatNumber(detectedSources)} source(s) detectee(s)` : `${connectedSources} configurees`
         );
+        setText("statExportsMeta", CSV_EXPORTS.join(" / "));
         renderSpeciesDistribution(calculateSpeciesDistribution(data));
         renderGeoDistributionChart(buildCountryDistribution(data));
 
@@ -676,6 +708,12 @@ initDashboard();
 
 window.addEventListener("storage", (event) => {
     if (event.key === LAST_RESULTS_KEY || event.key === STORAGE_KEY) {
-        initDashboard();
+        scheduleDashboardRefresh();
     }
+});
+
+window.addEventListener("focus", scheduleDashboardRefresh);
+
+document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) scheduleDashboardRefresh();
 });

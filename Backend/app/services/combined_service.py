@@ -121,6 +121,7 @@ def search_gbif_and_silene_expert(
             fetch_all=fetch_all,
             max_pages=max_pages,
             max_records=max_records,
+            include_iucn=include_iucn,
         )
 
         gbif_rows = _future_rows("GBIF", f_gbif)

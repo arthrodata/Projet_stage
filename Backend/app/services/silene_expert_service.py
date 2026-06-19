@@ -261,7 +261,7 @@ def _taxhub_get_cd_refs_by_family(family: str, max_items: int = 50) -> list[int]
     Recupere une liste de cd_ref (especes) appartenant a une famille via TaxHub.
     Sert a faire un "vrai" filtre famille pour Silene Expert.
     """
-    fam = (family or "").strip()
+    fam = _normalize_family_query(family)
     if not fam:
         return []
 
@@ -293,6 +293,13 @@ def _taxhub_get_cd_refs_by_family(family: str, max_items: int = 50) -> list[int]
         return list(dict.fromkeys(out))
     except (requests.RequestException, ValueError):
         return []
+
+
+def _normalize_family_query(family: str | None) -> str:
+    fam = (family or "").strip()
+    if not fam:
+        return ""
+    return fam[:1].upper() + fam[1:].lower()
 
 
 def _extract_records(payload: Any) -> list[dict[str, Any]]:
@@ -726,7 +733,7 @@ def search_silene_expert_mapped(
     if family and family.strip():
         # On ne met pas "family" dans le payload (ca ne filtre pas reellement sur l'API),
         # on filtrera ensuite sur la colonne "family".
-        family = family.strip()
+        family = _normalize_family_query(family)
 
     if species and species.strip():
         cd_ref = _taxhub_lookup_cd_ref(species.strip())

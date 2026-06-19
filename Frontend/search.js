@@ -2,7 +2,7 @@ console.log("search.js loaded");
 
 requireAuth();
 
-const API_URL = "http://127.0.0.1:8001";
+const API_URL = "http://127.0.0.1:8000";
 const STORAGE_KEY = "biodiversity:last_search_v1";
 const LAST_RESULTS_KEY = "biodiversity_last_results";
 const HISTORY_KEY = "biodiversity:search_history_v1";
@@ -138,13 +138,6 @@ function renderResults(data) {
     });
 }
 
-function applyFamilyFilterClientSide(data, family) {
-    const fam = (family || "").trim().toLowerCase();
-    if (!fam) return data;
-    if (!Array.isArray(data)) return [];
-    return data.filter((item) => ((item.family || "").toString().toLowerCase().includes(fam)));
-}
-
 function saveLastSearch(payload) {
     try {
         const entry = {
@@ -255,7 +248,20 @@ async function downloadBlobWithProgress(url) {
         }
     }
 
-    if (!response.ok) throw new Error("CSV error");
+    if (!response.ok) {
+        let detail = "";
+        try {
+            const payload = await response.clone().json();
+            detail = payload && payload.detail ? String(payload.detail) : "";
+        } catch {
+            try {
+                detail = await response.clone().text();
+            } catch {
+                detail = "";
+            }
+        }
+        throw new Error(detail || `CSV error (${response.status})`);
+    }
 
     const total = Number(response.headers.get("Content-Length") || 0);
     const contentType = response.headers.get("Content-Type") || "text/csv;charset=utf-8";
@@ -376,9 +382,6 @@ async function runSearch() {
             data = await response.json();
         }
 
-        // Safety filter: some sources can return empty or non-normalized families.
-        data = applyFamilyFilterClientSide(data, family);
-
         renderResults(data);
         saveLastSearch({
             params: { source, family, species, genus, country, dateFrom, dateTo, qualityGrade, resultLimit, maxPages },
@@ -492,7 +495,8 @@ exportBtn.addEventListener("click", function () {
             window.setTimeout(hideDownloadProgress, 1200);
         } catch (error) {
             console.error(error);
-            setMessage("Error: unable to download CSV.", "error");
+            const detail = error && error.message ? ` ${error.message}` : "";
+            setMessage(`Error: unable to download CSV.${detail}`, "error");
             showDownloadProgress("Erreur pendant le telechargement.", "Erreur", 100, false);
         } finally {
             setLoading(false);

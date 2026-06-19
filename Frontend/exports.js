@@ -2,7 +2,7 @@ console.log("exports.js loaded");
 
 requireAuth();
 
-const API_URL = "http://127.0.0.1:8001";
+const API_URL = "http://127.0.0.1:8000";
 const STORAGE_KEY = "biodiversity:last_search_v1";
 const HISTORY_KEY = "biodiversity:search_history_v1";
 const DEFAULT_RESULT_LIMIT = "300";
@@ -38,6 +38,12 @@ const SOURCE_CONFIG = {
         source: "iNaturalist",
         badge: "inaturalist",
         url: `${API_URL}/inaturalist/search/csv`,
+    },
+    steli: {
+        filename: "resultats_steli.csv",
+        source: "STELI",
+        badge: "steli",
+        url: `${API_URL}/steli/search/csv`,
     },
 };
 
@@ -96,12 +102,15 @@ function formatSavedDate(value) {
 }
 
 function getSourceConfig(entry) {
-    const source = entry && entry.params && entry.params.source ? entry.params.source : "gbif";
+    const source = entry && entry.params && entry.params.source
+        ? entry.params.source
+        : (entry && entry.source ? entry.source : "gbif");
     return SOURCE_CONFIG[source] || SOURCE_CONFIG.gbif;
 }
 
 function getRecordCount(entry) {
-    return entry && Array.isArray(entry.data) ? entry.data.length : 0;
+    if (entry && Array.isArray(entry.data)) return entry.data.length;
+    return entry && Number.isFinite(Number(entry.result_count)) ? Number(entry.result_count) : 0;
 }
 
 function getSearchLabel(entry, index) {
@@ -135,6 +144,39 @@ function getHistory() {
     return migrated;
 }
 
+function historyTimestamp(entry) {
+    const date = new Date((entry && (entry.savedAt || entry.created_at)) || 0);
+    return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
+function historyKey(entry) {
+    const params = (entry && entry.params) || {};
+    return [
+        params.source || entry.source || "",
+        params.family || "",
+        params.genus || "",
+        params.species || "",
+        params.country || "",
+        params.dateFrom || "",
+        params.dateTo || "",
+        entry && (entry.savedAt || entry.created_at || ""),
+    ].join("|");
+}
+
+function mergeHistories(serverHistory, localHistory) {
+    const seen = new Set();
+    return [...(serverHistory || []), ...(localHistory || [])]
+        .filter((entry) => entry && typeof entry === "object")
+        .sort((a, b) => historyTimestamp(b) - historyTimestamp(a))
+        .filter((entry) => {
+            const key = historyKey(entry);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        })
+        .slice(0, 10);
+}
+
 function buildDownloadUrl(entry) {
     const config = getSourceConfig(entry);
     const params = (entry && entry.params) || {};
@@ -150,7 +192,8 @@ function buildDownloadUrl(entry) {
     const maxPages = params.maxPages || DEFAULT_MAX_EXPORT_PAGES;
     if (maxPages && maxPages !== "50") query.append("max_pages", maxPages);
     query.append("refresh", String(Date.now()));
-    if ((params.source === "inaturalist" || params.source === "both") && params.qualityGrade) {
+    const source = params.source || (entry && entry.source) || "";
+    if ((source === "inaturalist" || source === "both" || source === "combined") && params.qualityGrade) {
         query.append("quality_grade", params.qualityGrade);
     }
 
@@ -343,11 +386,12 @@ async function renderExports() {
     if (!body) return;
 
     let history = [];
+    const localHistory = getHistory();
     try {
-        history = await loadServerHistory();
+        history = mergeHistories(await loadServerHistory(), localHistory);
     } catch (error) {
         console.error(error);
-        history = getHistory();
+        history = localHistory;
     }
     const latest = history[0] || null;
     const latestRecords = getRecordCount(latest);

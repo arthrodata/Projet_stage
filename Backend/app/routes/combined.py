@@ -93,11 +93,6 @@ def export_csv(
     max_pages: int | None = None,
     refresh: str | None = None,
 ):
-    if not any([(family or "").strip(), (genus or "").strip(), (species or "").strip()]):
-        raise HTTPException(
-            status_code=400,
-            detail="Pour exporter un CSV combine, renseigner au moins un filtre taxonomique (family/genus/species).",
-        )
     try:
         start_date, end_date = parse_query_date_range(date_from, date_to)
     except ValueError:

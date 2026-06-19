@@ -10,6 +10,7 @@ import pandas as pd
 import requests
 
 from Backend.app.services.gbif_service import get_country_code
+from Backend.app.services.iucn_service import IUCN_EMPTY_STATUS, get_iucn_enrichments
 from Backend.app.utils.date_filters import filter_rows_by_date_range
 from Backend.app.utils.row_normalization import CSV_EXPORT_COLUMNS, normalize_rows
 
@@ -179,6 +180,21 @@ def _write_export(rows: list[dict[str, Any]], export_file: Path) -> None:
     )
 
 
+def _enrich_iucn(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    enrichments = get_iucn_enrichments([str(row.get("species") or "") for row in rows])
+    for row in rows:
+        species_name = str(row.get("species") or "").strip()
+        enrichment = enrichments.get(species_name, {})
+        status = enrichment.get("iucn_status") or IUCN_EMPTY_STATUS
+        row["iucn_status"] = status
+        row["iucn_lookup_status"] = enrichment.get("iucn_lookup_status") or ""
+        row["iucn_assessment_id"] = enrichment.get("iucn_assessment_id") or ""
+        row["iucn_year"] = enrichment.get("iucn_year") or ""
+        row["iucn_scope"] = enrichment.get("iucn_scope") or ""
+        row["status"] = status
+    return rows
+
+
 def _gbif_steli_params(
     *,
     family: str | None,
@@ -244,6 +260,7 @@ def _search_steli_via_gbif(
     fetch_all: bool = False,
     max_pages: int | None = None,
     max_records: int | None = None,
+    include_iucn: bool = True,
 ) -> list[dict[str, str]]:
     logger.info("Calling STELI GBIF fallback with datasetKey %s", STELI_GBIF_DATASET_KEY)
 
@@ -301,6 +318,14 @@ def _search_steli_via_gbif(
         start_date=start_date,
         end_date=end_date,
     )
+    if include_iucn:
+        rows = _enrich_iucn(rows)
+    else:
+        for row in rows:
+            row["iucn_status"] = IUCN_EMPTY_STATUS
+            row["iucn_lookup_status"] = "skipped"
+            row["status"] = row.get("status") or IUCN_EMPTY_STATUS
+
     return normalize_rows(rows)
 
 
@@ -319,6 +344,7 @@ def search_steli(
     fetch_all: bool = False,
     max_pages: int | None = None,
     max_records: int | None = None,
+    include_iucn: bool = True,
 ) -> list[dict[str, str]]:
     """
     Recherche STELI.
@@ -347,6 +373,7 @@ def search_steli(
             fetch_all=fetch_all,
             max_pages=max_pages,
             max_records=max_records,
+            include_iucn=include_iucn,
         )
         if export_csv:
             _write_export(normalized, effective_export_file)
@@ -386,6 +413,14 @@ def search_steli(
         start_date=start_date,
         end_date=end_date,
     )
+    if include_iucn:
+        rows = _enrich_iucn(rows)
+    else:
+        for row in rows:
+            row["iucn_status"] = IUCN_EMPTY_STATUS
+            row["iucn_lookup_status"] = "skipped"
+            row["status"] = row.get("status") or IUCN_EMPTY_STATUS
+
     normalized = normalize_rows(rows)
 
     if export_csv:

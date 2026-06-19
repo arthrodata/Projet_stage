@@ -122,7 +122,7 @@ class TestCombinedExport(unittest.TestCase):
         self.assertTrue(gbif.call_args.kwargs["include_iucn"])
         self.assertTrue(silene.call_args.kwargs["include_iucn"])
         self.assertTrue(inaturalist.call_args.kwargs["include_iucn"])
-        self.assertNotIn("include_iucn", steli.call_args.kwargs)
+        self.assertTrue(steli.call_args.kwargs["include_iucn"])
 
     def test_combined_export_keeps_other_sources_when_one_source_fails(self):
         silene_rows = [
