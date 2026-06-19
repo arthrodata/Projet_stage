@@ -1,6 +1,6 @@
 console.log("exports.js loaded");
 
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = "http://127.0.0.1:8001";
 const STORAGE_KEY = "biodiversity:last_search_v1";
 const HISTORY_KEY = "biodiversity:search_history_v1";
 const DEFAULT_RESULT_LIMIT = "300";

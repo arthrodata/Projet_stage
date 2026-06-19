@@ -610,7 +610,7 @@ function initDashboard() {
 
     try {
         if (window.location && window.location.protocol === "file:") {
-            if (msg) msg.textContent = "Ouvre la page via http://127.0.0.1:8000 pour lire la derniere recherche.";
+            if (msg) msg.textContent = "Ouvre la page via http://127.0.0.1:8001 pour lire la derniere recherche.";
         } else if (msg) {
             msg.textContent = "Chargement...";
         }

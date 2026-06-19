@@ -1,6 +1,6 @@
 console.log("search.js loaded");
 
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = "http://127.0.0.1:8001";
 const STORAGE_KEY = "biodiversity:last_search_v1";
 const LAST_RESULTS_KEY = "biodiversity_last_results";
 const HISTORY_KEY = "biodiversity:search_history_v1";
@@ -299,6 +299,7 @@ function syncSourceCards() {
             gbif: "GBIF occurrence search with standardized CSV export.",
             silene_expert: "Silene Expert search with automatic token refresh.",
             inaturalist: "iNaturalist observations with selectable quality grade.",
+            steli: "STELI odonate monitoring via OpenObs/INPN when an endpoint is configured.",
             both: "Combined export runs GBIF, Silene Expert and iNaturalist in parallel.",
         };
         sourceHint.textContent = labels[activeSource] || labels.gbif;
@@ -338,6 +339,12 @@ async function runSearch() {
             console.log("Called URL:", url);
             const response = await fetch(url);
             if (!response.ok) throw new Error("iNaturalist API error");
+            data = await response.json();
+        } else if (source === "steli") {
+            const url = `${API_URL}/steli/search?${params.toString()}`;
+            console.log("Called URL:", url);
+            const response = await fetch(url);
+            if (!response.ok) throw new Error("STELI API error");
             data = await response.json();
         } else if (source === "both") {
             // Combined endpoint: one call and one server-side CSV.
@@ -437,6 +444,9 @@ exportBtn.addEventListener("click", function () {
     } else if (source === "inaturalist") {
         url = `${API_URL}/inaturalist/search/csv?${params.toString()}`;
         defaultFilename = "inaturalist_results.csv";
+    } else if (source === "steli") {
+        url = `${API_URL}/steli/search/csv?${params.toString()}`;
+        defaultFilename = "steli_results.csv";
     } else {
         url = `${API_URL}/combined/search/csv?${params.toString()}`;
         defaultFilename = "gbif_silene_inaturalist_results.csv";
