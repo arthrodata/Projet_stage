@@ -6,6 +6,9 @@ from Backend.app.routes.silene_expert import router as silene_expert_router
 from Backend.app.routes.inaturalist import router as inaturalist_router
 from Backend.app.routes.combined import router as combined_router
 from Backend.app.routes.steli import router as steli_router
+from Backend.app.routes.auth import router as auth_router
+from Backend.app.routes.history import router as history_router
+from Backend.app.utils.database import init_db
 from pathlib import Path
 import os
 
@@ -37,6 +40,11 @@ _load_env_file()
 
 app = FastAPI()
 
+
+@app.on_event("startup")
+def startup() -> None:
+    init_db()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -50,3 +58,5 @@ app.include_router(silene_expert_router)
 app.include_router(inaturalist_router)
 app.include_router(combined_router)
 app.include_router(steli_router)
+app.include_router(auth_router)
+app.include_router(history_router)

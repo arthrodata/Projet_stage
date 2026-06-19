@@ -8,3 +8,4 @@ __pycache__/
 *.xlsx
 data/raw/*
 data/processed/*
+Backend/data/

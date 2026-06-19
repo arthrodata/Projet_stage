@@ -134,6 +134,77 @@ select {
     background: rgba(255, 255, 255, 0.06);
 }
 
+.auth-card {
+    display: grid;
+    align-items: start;
+    gap: 12px;
+}
+
+.auth-card-main {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.auth-card-main strong {
+    display: block;
+    max-width: 150px;
+    overflow-wrap: anywhere;
+}
+
+.auth-card-main p {
+    margin: 3px 0 0;
+}
+
+.auth-logout {
+    min-height: 34px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 10px;
+    color: #0f172a;
+    background: #e0f2fe;
+    cursor: pointer;
+    font-weight: 800;
+    justify-self: start;
+}
+
+.auth-page {
+    display: grid;
+    min-height: 100vh;
+    place-items: center;
+    padding: 24px;
+}
+
+.auth-panel {
+    width: min(680px, 100%);
+    padding: 30px;
+    border: 1px solid rgba(217, 226, 239, 0.9);
+    border-radius: 24px;
+    background: var(--panel);
+    box-shadow: var(--shadow);
+}
+
+.auth-brand {
+    padding: 0 0 24px;
+    color: var(--ink);
+}
+
+.auth-heading {
+    margin-bottom: 18px;
+}
+
+.auth-form {
+    display: grid;
+    gap: 16px;
+}
+
+.auth-name-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
 .api-card p {
     margin: 3px 0 0;
     color: #aebeda;

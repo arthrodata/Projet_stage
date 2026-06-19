@@ -1,0 +1,110 @@
+const AUTH_TOKEN_KEY = "biodiversity:auth_token";
+const AUTH_USER_KEY = "biodiversity:auth_user";
+
+function clearLegacyPersistentAuth() {
+    try {
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+        localStorage.removeItem(AUTH_USER_KEY);
+    } catch {
+        // ignore storage errors
+    }
+}
+
+function getAuthToken() {
+    try {
+        clearLegacyPersistentAuth();
+        return sessionStorage.getItem(AUTH_TOKEN_KEY) || "";
+    } catch {
+        return "";
+    }
+}
+
+function getAuthUser() {
+    try {
+        clearLegacyPersistentAuth();
+        const raw = sessionStorage.getItem(AUTH_USER_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch {
+        return null;
+    }
+}
+
+function setAuthSession(payload) {
+    if (!payload || !payload.access_token) return;
+    clearLegacyPersistentAuth();
+    sessionStorage.setItem(AUTH_TOKEN_KEY, payload.access_token);
+    sessionStorage.setItem(AUTH_USER_KEY, JSON.stringify(payload.user || {}));
+}
+
+function clearAuthSession() {
+    try {
+        sessionStorage.removeItem(AUTH_TOKEN_KEY);
+        sessionStorage.removeItem(AUTH_USER_KEY);
+        clearLegacyPersistentAuth();
+    } catch {
+        // ignore storage errors
+    }
+}
+
+function authHeaders(extraHeaders) {
+    const headers = { ...(extraHeaders || {}) };
+    const token = getAuthToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    return headers;
+}
+
+async function authFetch(url, options) {
+    const opts = options || {};
+    const response = await fetch(url, {
+        ...opts,
+        headers: authHeaders(opts.headers),
+    });
+    if (response.status === 401) {
+        clearAuthSession();
+        const next = encodeURIComponent(`${window.location.pathname}${window.location.search}${window.location.hash}`);
+        window.location.href = `login.html?next=${next}`;
+    }
+    return response;
+}
+
+function requireAuth() {
+    if (getAuthToken()) return;
+    const next = encodeURIComponent(`${window.location.pathname}${window.location.search}${window.location.hash}`);
+    window.location.href = `login.html?next=${next}`;
+}
+
+function logout() {
+    clearAuthSession();
+    window.location.href = "login.html";
+}
+
+function renderAuthBadge() {
+    const cards = document.querySelectorAll(".api-card");
+    if (!cards.length) return;
+    const user = getAuthUser();
+    const displayName = user && user.display_name ? user.display_name : "";
+    const fallbackName = user && (user.first_name || user.last_name)
+        ? `${user.first_name || ""} ${user.last_name || ""}`.trim()
+        : "";
+    const label = displayName || fallbackName || "Utilisateur connecte";
+    cards.forEach((card) => {
+        const existing = card.parentElement && card.parentElement.querySelector(".auth-card");
+        if (existing) existing.remove();
+
+        const authCard = document.createElement("div");
+        authCard.className = "api-card auth-card";
+        authCard.innerHTML = `
+            <div class="auth-card-main">
+                <span class="status-dot"></span>
+                <div>
+                    <strong>${label}</strong>
+                    <p>Espace personnel</p>
+                </div>
+            </div>
+            <button type="button" class="auth-logout">Logout</button>
+        `;
+        const button = authCard.querySelector(".auth-logout");
+        button.addEventListener("click", logout);
+        card.insertAdjacentElement("afterend", authCard);
+    });
+}

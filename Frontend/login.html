@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BioData Explorer - Connexion</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="search.css">
+</head>
+<body>
+<main class="auth-page">
+    <section class="auth-panel">
+        <div class="brand auth-brand">
+            <div class="brand-mark">B</div>
+            <div>
+                <h1>BioData Explorer</h1>
+                <p>Espace personnel</p>
+            </div>
+        </div>
+
+        <div class="panel-heading auth-heading">
+            <div>
+                <span class="section-kicker">Connexion</span>
+                <h2>Acceder a votre historique</h2>
+                <p>Connectez-vous pour conserver vos recherches, exports et graphiques separement des autres utilisateurs.</p>
+            </div>
+            <div id="authMessage" class="message-pill neutral">Connectez-vous ou creez un compte.</div>
+        </div>
+
+        <form id="authForm" class="auth-form">
+            <div class="auth-name-grid">
+                <div class="field">
+                    <label for="firstName">Prenom</label>
+                    <input id="firstName" type="text" autocomplete="given-name" placeholder="Oussama">
+                </div>
+                <div class="field">
+                    <label for="lastName">Nom</label>
+                    <input id="lastName" type="text" autocomplete="family-name" placeholder="Bekolli">
+                </div>
+            </div>
+            <div class="field">
+                <label for="email">Email</label>
+                <input id="email" type="email" autocomplete="email" required placeholder="prenom.nom@universite.fr">
+            </div>
+            <div class="field">
+                <label for="password">Mot de passe</label>
+                <input id="password" type="password" autocomplete="current-password" required minlength="6">
+            </div>
+            <div class="button-row">
+                <button type="submit" id="loginBtn" class="btn-primary">Se connecter</button>
+                <button type="button" id="registerBtn" class="btn-export">Creer un compte</button>
+            </div>
+        </form>
+    </section>
+</main>
+
+<script src="auth.js"></script>
+<script src="login.js"></script>
+</body>
+</html>

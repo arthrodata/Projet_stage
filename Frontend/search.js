@@ -1,5 +1,7 @@
 console.log("search.js loaded");
 
+requireAuth();
+
 const API_URL = "http://127.0.0.1:8001";
 const STORAGE_KEY = "biodiversity:last_search_v1";
 const LAST_RESULTS_KEY = "biodiversity_last_results";
@@ -230,7 +232,7 @@ async function downloadBlobWithProgress(url) {
     showDownloadProgress("Preparation du CSV...", "En cours", 0, true);
     let response;
     try {
-        response = await fetch(url);
+        response = await authFetch(url);
     } finally {
         if (timer) {
             window.clearInterval(timer);
@@ -324,33 +326,33 @@ async function runSearch() {
         if (source === "gbif") {
             const url = `${API_URL}/search?${params.toString()}`;
             console.log("Called URL:", url);
-            const response = await fetch(url);
+            const response = await authFetch(url);
             if (!response.ok) throw new Error("GBIF API error");
             data = await response.json();
         } else if (source === "silene_expert") {
             // Mapping route applies family/genus/species/country filters server-side.
             const url = `${API_URL}/silene-expert/search?${params.toString()}`;
             console.log("Called URL:", url);
-            const response = await fetch(url);
+            const response = await authFetch(url);
             if (!response.ok) throw new Error("Silene Expert API error");
             data = await response.json();
         } else if (source === "inaturalist") {
             const url = `${API_URL}/inaturalist/search?${params.toString()}`;
             console.log("Called URL:", url);
-            const response = await fetch(url);
+            const response = await authFetch(url);
             if (!response.ok) throw new Error("iNaturalist API error");
             data = await response.json();
         } else if (source === "steli") {
             const url = `${API_URL}/steli/search?${params.toString()}`;
             console.log("Called URL:", url);
-            const response = await fetch(url);
+            const response = await authFetch(url);
             if (!response.ok) throw new Error("STELI API error");
             data = await response.json();
         } else if (source === "both") {
             // Combined endpoint: one call and one server-side CSV.
             const url = `${API_URL}/combined/search?${params.toString()}`;
             console.log("Called URL:", url);
-            const response = await fetch(url);
+            const response = await authFetch(url);
             if (!response.ok) throw new Error("Combined API error");
             data = await response.json();
         }
@@ -482,5 +484,6 @@ exportBtn.addEventListener("click", function () {
 });
 
 syncSourceCards();
+renderAuthBadge();
 removeLegacySearchWidget();
 restoreLastSearch();

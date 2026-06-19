@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from typing import Any
 from Backend.app.services.inaturalist_service import EXPORT_FILE, search_inaturalist
 from Backend.app.utils.csv_export_cache import (
     cached_export_matches,
@@ -7,6 +8,8 @@ from Backend.app.utils.csv_export_cache import (
     remember_export,
     write_rows_export,
 )
+from Backend.app.utils.auth import optional_current_user
+from Backend.app.utils.history import remember_search
 from Backend.app.utils.date_filters import parse_query_date_range
 
 
@@ -24,6 +27,7 @@ def search(
     quality_grade: str = None,
     limit: int = 100,
     page: int = 1,
+    user: dict[str, Any] | None = Depends(optional_current_user),
 ):
     try:
         start_date, end_date = parse_query_date_range(date_from, date_to)
@@ -57,6 +61,22 @@ def search(
             limit=limit,
             page=page,
         ),
+    )
+    remember_search(
+        user,
+        source="inaturalist",
+        params={
+            "source": "inaturalist",
+            "family": family,
+            "genus": genus,
+            "species": species,
+            "country": country,
+            "dateFrom": date_from,
+            "dateTo": date_to,
+            "qualityGrade": quality_grade,
+            "resultLimit": limit,
+        },
+        rows=data,
     )
     return data
 

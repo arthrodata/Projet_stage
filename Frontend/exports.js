@@ -1,5 +1,7 @@
 console.log("exports.js loaded");
 
+requireAuth();
+
 const API_URL = "http://127.0.0.1:8001";
 const STORAGE_KEY = "biodiversity:last_search_v1";
 const HISTORY_KEY = "biodiversity:search_history_v1";
@@ -253,7 +255,7 @@ async function fetchCsvWithProgress(url, filename) {
 
     let response;
     try {
-        response = await fetch(url);
+        response = await authFetch(url);
     } finally {
         if (timer) {
             window.clearInterval(timer);
@@ -330,11 +332,23 @@ function renderEmptyState(body) {
     `;
 }
 
-function renderExports() {
+async function loadServerHistory() {
+    const response = await authFetch(`${API_URL}/history?limit=10`);
+    if (!response.ok) throw new Error("History API error");
+    return response.json();
+}
+
+async function renderExports() {
     const body = document.getElementById("exportsBody");
     if (!body) return;
 
-    const history = getHistory();
+    let history = [];
+    try {
+        history = await loadServerHistory();
+    } catch (error) {
+        console.error(error);
+        history = getHistory();
+    }
     const latest = history[0] || null;
     const latestRecords = getRecordCount(latest);
 
@@ -386,4 +400,5 @@ function renderExports() {
     setMessage(`${formatNumber(history.length)} recherche${history.length > 1 ? "s" : ""} dans l'historique.`, "neutral");
 }
 
+renderAuthBadge();
 renderExports();

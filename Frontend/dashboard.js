@@ -1,5 +1,6 @@
 const STORAGE_KEY = "biodiversity:last_search_v1";
 const LAST_RESULTS_KEY = "biodiversity_last_results";
+const API_URL = "http://127.0.0.1:8000";
 const IGNORED_SPECIES = new Set(["unknown", "non renseign\u00e9", "non renseigne", "not provided"]);
 const SPECIES_COLORS = ["#2563eb", "#059669", "#7c3aed", "#f97316", "#dc2626"];
 const GEO_COUNTRY_COLORS = ["#2563eb", "#059669", "#7c3aed", "#f97316", "#dc2626"];
@@ -605,7 +606,14 @@ function setText(id, value) {
     if (el) el.textContent = value;
 }
 
-function initDashboard() {
+async function readServerLastSearch() {
+    const response = await authFetch(`${API_URL}/history?limit=1`);
+    if (!response.ok) throw new Error("History API error");
+    const history = await response.json();
+    return Array.isArray(history) && history.length > 0 ? history[0] : null;
+}
+
+async function initDashboard() {
     const msg = document.getElementById("dashMessage");
 
     try {
@@ -615,7 +623,13 @@ function initDashboard() {
             msg.textContent = "Chargement...";
         }
 
-        const saved = readLastSearch();
+        let saved = null;
+        try {
+            saved = await readServerLastSearch();
+        } catch (error) {
+            console.error(error);
+            saved = readLastSearch();
+        }
         const data = saved && Array.isArray(saved.data) ? saved.data : [];
 
         const connectedSources = 3;
@@ -656,6 +670,8 @@ function initDashboard() {
     }
 }
 
+requireAuth();
+renderAuthBadge();
 initDashboard();
 
 window.addEventListener("storage", (event) => {
