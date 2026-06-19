@@ -1,6 +1,6 @@
 const STORAGE_KEY = "biodiversity:last_search_v1";
 const LAST_RESULTS_KEY = "biodiversity_last_results";
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = "http://127.0.0.1:8001";
 const CONNECTED_SOURCES = ["GBIF", "Silene Expert", "iNaturalist", "STELI"];
 const CSV_EXPORTS = ["GBIF", "Silene Expert", "iNaturalist", "STELI", "Combined"];
 const IGNORED_SPECIES = new Set(["unknown", "non renseign\u00e9", "non renseigne", "not provided"]);
@@ -655,7 +655,7 @@ async function initDashboard() {
 
     try {
         if (window.location && window.location.protocol === "file:") {
-            if (msg) msg.textContent = "Ouvre la page via http://127.0.0.1:8000 pour lire la derniere recherche.";
+            if (msg) msg.textContent = "Ouvre la page via http://127.0.0.1:8001 pour lire la derniere recherche.";
         } else if (msg) {
             msg.textContent = "Chargement...";
         }

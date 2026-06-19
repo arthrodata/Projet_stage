@@ -2,7 +2,7 @@ console.log("exports.js loaded");
 
 requireAuth();
 
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = "http://127.0.0.1:8001";
 const STORAGE_KEY = "biodiversity:last_search_v1";
 const HISTORY_KEY = "biodiversity:search_history_v1";
 const DEFAULT_RESULT_LIMIT = "300";
@@ -191,7 +191,6 @@ function buildDownloadUrl(entry) {
     query.append("limit", params.resultLimit || DEFAULT_RESULT_LIMIT);
     const maxPages = params.maxPages || DEFAULT_MAX_EXPORT_PAGES;
     if (maxPages && maxPages !== "50") query.append("max_pages", maxPages);
-    query.append("refresh", String(Date.now()));
     const source = params.source || (entry && entry.source) || "";
     if ((source === "inaturalist" || source === "both" || source === "combined") && params.qualityGrade) {
         query.append("quality_grade", params.qualityGrade);
@@ -349,14 +348,10 @@ async function downloadCsv(entry, button) {
 
     try {
         setDownloadLoading(button, true);
-        setMessage(`Pr\u00e9paration de ${config.filename}...`, "neutral");
+        setMessage(`Pr\u00e9paration de l'export complet ${config.filename}...`, "neutral");
 
-        if (entry && Array.isArray(entry.data) && entry.data.length > 0) {
-            triggerBlobDownload(buildCsvFromRows(entry.data), config.filename);
-        } else {
-            const blob = await fetchCsvWithProgress(buildDownloadUrl(entry), config.filename);
-            triggerBlobDownload(blob, config.filename);
-        }
+        const blob = await fetchCsvWithProgress(buildDownloadUrl(entry), config.filename);
+        triggerBlobDownload(blob, config.filename);
 
         setMessage(`${config.filename} t\u00e9l\u00e9charg\u00e9.`, "success");
     } catch (error) {

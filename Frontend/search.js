@@ -2,7 +2,7 @@ console.log("search.js loaded");
 
 requireAuth();
 
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = "http://127.0.0.1:8001";
 const STORAGE_KEY = "biodiversity:last_search_v1";
 const LAST_RESULTS_KEY = "biodiversity_last_results";
 const HISTORY_KEY = "biodiversity:search_history_v1";
