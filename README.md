@@ -10,7 +10,8 @@ Application locale pour rechercher des occurrences biologiques dans plusieurs ba
   - GBIF
   - Silene Expert
   - iNaturalist
-  - Recherche combinee GBIF + Silene Expert + iNaturalist
+  - STELI
+  - Recherche combinee GBIF + Silene Expert + iNaturalist + STELI
 - Filtres :
   - pays
   - famille
@@ -83,18 +84,30 @@ Depuis la racine du repo :
 .\venv\Scripts\python.exe -m uvicorn Backend.app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
+Ou simplement :
+
+```powershell
+.\start_backend.ps1
+```
+
 ## Lancer le frontend
 
 Depuis `Frontend/` :
 
 ```powershell
-python -m http.server 8080
+python -m http.server 8081 --bind 127.0.0.1
 ```
 
 Puis ouvrir :
 
 ```text
-http://127.0.0.1:8080/search.html
+http://127.0.0.1:8081/search.html
+```
+
+Ou depuis la racine du repo :
+
+```powershell
+.\start_frontend.ps1
 ```
 
 ## Colonnes CSV standardisees
@@ -152,6 +165,12 @@ Combine :
 GET /combined/search?family=...&genus=...&species=...&country=...&date_from=YYYY-MM-DD&date_to=YYYY-MM-DD&quality_grade=research,needs_id&limit=100&page=1
 ```
 
+STELI :
+
+```text
+GET /steli/search?family=...&genus=...&species=...&country=...&date_from=YYYY-MM-DD&date_to=YYYY-MM-DD&limit=100&page=1
+```
+
 ## Endpoints CSV
 
 GBIF :
@@ -176,6 +195,12 @@ Combine :
 
 ```text
 GET /combined/search/csv?species=Testudo hermanni&quality_grade=research,needs_id&limit=200&max_pages=50
+```
+
+STELI :
+
+```text
+GET /steli/search/csv?species=Orthetrum cancellatum&limit=200&max_pages=50
 ```
 
 ## Performance

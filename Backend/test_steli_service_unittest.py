@@ -188,6 +188,56 @@ class TestSteliService(unittest.TestCase):
         self.assertEqual(remember.call_args.kwargs["params"]["source"], "steli")
         self.assertEqual(remember.call_args.kwargs["params"]["country"], "FR")
 
+    def test_steli_search_updates_export_csv(self):
+        rows = [
+            {
+                "source_bdd": "STELI",
+                "country": "France",
+                "coordinates": "43.2, 5.4",
+                "eventDate": "2024-06-01",
+                "family": "Libellulidae",
+                "genus": "Orthetrum",
+                "species": "Orthetrum cancellatum",
+                "status": "Non renseigne",
+            }
+        ]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            export_file = Path(tmp) / "resultats_steli.csv"
+            original = "source_bdd,species\nold,previous\n"
+            export_file.write_text(original, encoding="utf-8")
+
+            with patch("Backend.app.routes.steli.EXPORT_FILE", export_file), patch(
+                "Backend.app.routes.steli.search_steli",
+                return_value=rows,
+            ):
+                returned = steli.search(family="Libellulidae")
+
+            content = export_file.read_text(encoding="utf-8-sig")
+
+        self.assertEqual(returned, rows)
+        self.assertNotEqual(content, original)
+        self.assertIn("STELI", content)
+        self.assertIn("Orthetrum cancellatum", content)
+
+    def test_steli_empty_search_clears_previous_export_csv(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            export_file = Path(tmp) / "resultats_steli.csv"
+            original = "source_bdd,species\nSTELI,Orthetrum cancellatum\n"
+            export_file.write_text(original, encoding="utf-8")
+
+            with patch("Backend.app.routes.steli.EXPORT_FILE", export_file), patch(
+                "Backend.app.routes.steli.search_steli",
+                return_value=[],
+            ):
+                returned = steli.search(family="Tortricidae")
+
+            content = export_file.read_text(encoding="utf-8-sig")
+
+        self.assertEqual(returned, [])
+        self.assertNotIn("Orthetrum cancellatum", content)
+        self.assertIn("source_bdd", content)
+
     def test_steli_fetch_all_collects_multiple_gbif_pages(self):
         class PagedSession:
             def __init__(self):
