@@ -2,7 +2,7 @@ console.log("search.js loaded");
 
 requireAuth();
 
-const API_URL = "http://127.0.0.1:8001";
+const API_URL = "http://127.0.0.1:8000";
 const STORAGE_KEY = "biodiversity:last_search_v1";
 const LAST_RESULTS_KEY = "biodiversity_last_results";
 const HISTORY_KEY = "biodiversity:search_history_v1";
@@ -33,6 +33,8 @@ const dateToInput = document.getElementById("dateTo");
 const qualityGradeInput = document.getElementById("qualityGrade");
 const sourceHint = document.getElementById("sourceHint");
 let activeSource = "gbif";
+let searchRunId = 0;
+let searchAbortController = null;
 
 function normalizeSource(value) {
     const source = String(value || "").trim();
@@ -47,19 +49,9 @@ function setActiveSource(source) {
     syncSourceCards();
 }
 
-function hasSearchCriteria() {
-    return [familyInput, speciesInput, genusInput, countryInput, dateFromInput, dateToInput]
-        .filter(Boolean)
-        .some((input) => String(input.value || "").trim() !== "");
-}
-
 function handleSourceChange(source) {
     setActiveSource(source);
-    if (hasSearchCriteria()) {
-        window.setTimeout(runSearch, 0);
-    } else {
-        setMessage("Source selected. Add filters and run analysis.", "neutral");
-    }
+    setMessage("Source selected. Click Run analysis to search.", "neutral");
 }
 
 function removeLegacySearchWidget() {
@@ -214,6 +206,21 @@ function setMessage(text, type) {
     if (type === "neutral") message.classList.add("neutral");
 }
 
+async function readErrorDetail(response, fallback) {
+    let detail = "";
+    try {
+        const payload = await response.clone().json();
+        detail = payload && payload.detail ? String(payload.detail) : "";
+    } catch {
+        try {
+            detail = await response.clone().text();
+        } catch {
+            detail = "";
+        }
+    }
+    return detail || `${fallback} (${response.status})`;
+}
+
 function formatBytes(bytes) {
     const value = Number(bytes || 0);
     if (!Number.isFinite(value) || value <= 0) return "0 Ko";
@@ -351,6 +358,14 @@ function syncSourceCards() {
 async function runSearch() {
     const { source, family, species, genus, country, dateFrom, dateTo, qualityGrade, resultLimit, maxPages, params } =
         getQueryParams();
+    const currentRunId = searchRunId + 1;
+    searchRunId = currentRunId;
+
+    if (searchAbortController) {
+        searchAbortController.abort();
+    }
+    searchAbortController = new AbortController();
+    params.set("_", String(Date.now()));
 
     if (dateFrom && dateTo && dateFrom > dateTo) {
         setMessage("Error: date_from must be before date_to.", "error");
@@ -366,36 +381,38 @@ async function runSearch() {
         if (source === "gbif") {
             const url = `${API_URL}/search?${params.toString()}`;
             console.log("Called URL:", url);
-            const response = await authFetch(url);
-            if (!response.ok) throw new Error("GBIF API error");
+            const response = await authFetch(url, { cache: "no-store", signal: searchAbortController.signal });
+            if (!response.ok) throw new Error(await readErrorDetail(response, "GBIF API error"));
             data = await response.json();
         } else if (source === "silene_expert") {
             // Mapping route applies family/genus/species/country filters server-side.
             const url = `${API_URL}/silene-expert/search?${params.toString()}`;
             console.log("Called URL:", url);
-            const response = await authFetch(url);
-            if (!response.ok) throw new Error("Silene Expert API error");
+            const response = await authFetch(url, { cache: "no-store", signal: searchAbortController.signal });
+            if (!response.ok) throw new Error(await readErrorDetail(response, "Silene Expert API error"));
             data = await response.json();
         } else if (source === "inaturalist") {
             const url = `${API_URL}/inaturalist/search?${params.toString()}`;
             console.log("Called URL:", url);
-            const response = await authFetch(url);
-            if (!response.ok) throw new Error("iNaturalist API error");
+            const response = await authFetch(url, { cache: "no-store", signal: searchAbortController.signal });
+            if (!response.ok) throw new Error(await readErrorDetail(response, "iNaturalist API error"));
             data = await response.json();
         } else if (source === "steli") {
             const url = `${API_URL}/steli/search?${params.toString()}`;
             console.log("Called URL:", url);
-            const response = await authFetch(url);
-            if (!response.ok) throw new Error("STELI API error");
+            const response = await authFetch(url, { cache: "no-store", signal: searchAbortController.signal });
+            if (!response.ok) throw new Error(await readErrorDetail(response, "STELI API error"));
             data = await response.json();
         } else if (source === "both") {
             // Combined endpoint: one call and one server-side CSV.
             const url = `${API_URL}/combined/search?${params.toString()}`;
             console.log("Called URL:", url);
-            const response = await authFetch(url);
-            if (!response.ok) throw new Error("Combined API error");
+            const response = await authFetch(url, { cache: "no-store", signal: searchAbortController.signal });
+            if (!response.ok) throw new Error(await readErrorDetail(response, "Combined API error"));
             data = await response.json();
         }
+
+        if (currentRunId !== searchRunId) return;
 
         renderResults(data);
         saveLastSearch({
@@ -405,10 +422,16 @@ async function runSearch() {
 
         setMessage("Search completed.", "success");
     } catch (error) {
+        if (error && error.name === "AbortError") return;
         console.error(error);
-        setMessage("Error: unable to retrieve data.", "error");
+        if (currentRunId !== searchRunId) return;
+        const detail = error && error.message ? ` ${error.message}` : "";
+        setMessage(`Error: unable to retrieve data.${detail}`, "error");
     } finally {
-        setLoading(false);
+        if (currentRunId === searchRunId) {
+            setLoading(false);
+            searchAbortController = null;
+        }
     }
 }
 

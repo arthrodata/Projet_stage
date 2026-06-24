@@ -2,7 +2,7 @@ console.log("exports.js loaded");
 
 requireAuth();
 
-const API_URL = "http://127.0.0.1:8001";
+const API_URL = "http://127.0.0.1:8000";
 const STORAGE_KEY = "biodiversity:last_search_v1";
 const HISTORY_KEY = "biodiversity:search_history_v1";
 const DEFAULT_RESULT_LIMIT = "300";
@@ -305,7 +305,20 @@ async function fetchCsvWithProgress(url, filename) {
         }
     }
 
-    if (!response.ok) throw new Error(`CSV download failed: ${response.status}`);
+    if (!response.ok) {
+        let detail = "";
+        try {
+            const payload = await response.clone().json();
+            detail = payload && payload.detail ? String(payload.detail) : "";
+        } catch {
+            try {
+                detail = await response.clone().text();
+            } catch {
+                detail = "";
+            }
+        }
+        throw new Error(detail || `CSV download failed: ${response.status}`);
+    }
 
     const total = Number(response.headers.get("Content-Length") || 0);
     const contentType = response.headers.get("Content-Type") || "text/csv;charset=utf-8";
@@ -356,7 +369,8 @@ async function downloadCsv(entry, button) {
         setMessage(`${config.filename} t\u00e9l\u00e9charg\u00e9.`, "success");
     } catch (error) {
         console.error(error);
-        setMessage("Erreur: impossible de t\u00e9l\u00e9charger le CSV.", "error");
+        const detail = error && error.message ? ` ${error.message}` : "";
+        setMessage(`Erreur: impossible de t\u00e9l\u00e9charger le CSV.${detail}`, "error");
     } finally {
         setDownloadLoading(button, false);
     }
