@@ -1,4 +1,5 @@
 import csv
+import time
 import tempfile
 import unittest
 from pathlib import Path
@@ -158,6 +159,35 @@ class TestCombinedExport(unittest.TestCase):
             self.assertEqual(combined[0]["source_bdd"], "Silene Expert")
             self.assertTrue(out.exists())
             log_exception.assert_called_once()
+
+    def test_combined_search_keeps_fast_sources_when_one_source_times_out(self):
+        gbif_rows = [{"source_bdd": "GBIF", "species": "Panthera leo"}]
+        inaturalist_rows = [{"source_bdd": "iNaturalist", "species": "Panthera leo"}]
+
+        def slow_silene(**kwargs):
+            time.sleep(0.2)
+            return [{"source_bdd": "Silene Expert", "species": "Panthera leo"}]
+
+        with patch("Backend.app.services.combined_service.search_gbif", return_value=gbif_rows), patch(
+            "Backend.app.services.combined_service.search_silene_expert_mapped",
+            side_effect=slow_silene,
+        ), patch(
+            "Backend.app.services.combined_service.search_inaturalist",
+            return_value=inaturalist_rows,
+        ), patch(
+            "Backend.app.services.combined_service.search_steli",
+            return_value=[],
+        ), patch(
+            "Backend.app.services.combined_service.logger.warning"
+        ) as warning:
+            combined = search_gbif_and_silene_expert(
+                export_csv=False,
+                include_iucn=False,
+                source_timeout=0.01,
+            )
+
+        self.assertEqual([row["source_bdd"] for row in combined], ["GBIF", "iNaturalist"])
+        warning.assert_called_once()
 
 
 if __name__ == "__main__":

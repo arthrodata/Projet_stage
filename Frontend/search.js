@@ -103,7 +103,39 @@ function getQueryParams() {
     return { source, family, species, genus, country, dateFrom, dateTo, qualityGrade, resultLimit, maxPages, params };
 }
 
-function renderResults(data) {
+function triggerBlobDownload(blob, filename) {
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objectUrl);
+}
+
+function getPreviewRows(data, source) {
+    const rows = Array.isArray(data) ? data : [];
+    if (normalizeSource(source) !== "both") return rows.slice(0, 10);
+
+    const sourceOrder = ["GBIF", "Silene Expert", "iNaturalist", "STELI"];
+    const grouped = sourceOrder.map((sourceName) => rows.filter((row) => row && row.source_bdd === sourceName));
+    const preview = [];
+    let index = 0;
+
+    while (preview.length < 10 && grouped.some((items) => index < items.length)) {
+        grouped.forEach((items) => {
+            if (preview.length < 10 && index < items.length) {
+                preview.push(items[index]);
+            }
+        });
+        index += 1;
+    }
+
+    return preview.length ? preview : rows.slice(0, 10);
+}
+
+function renderResults(data, source) {
     resultsBody.innerHTML = "";
 
     if (!Array.isArray(data) || data.length === 0) {
@@ -118,8 +150,10 @@ function renderResults(data) {
         return;
     }
 
-    const firstTen = data.slice(0, 10);
-    countText.textContent = `${data.length} result(s) retrieved. Showing the first 10.`;
+    const firstTen = getPreviewRows(data, source);
+    countText.textContent = normalizeSource(source) === "both"
+        ? `${data.length} result(s) retrieved. Showing a source-balanced preview.`
+        : `${data.length} result(s) retrieved. Showing the first 10.`;
 
     function getIucnValue(item) {
         return item.status || item.iucn_status || item.redListCategory || "Not provided";
@@ -143,6 +177,24 @@ function renderResults(data) {
         `;
         resultsBody.appendChild(row);
     });
+}
+
+function renderSearchInProgress(source) {
+    const labels = {
+        gbif: "GBIF",
+        silene_expert: "Silene Expert",
+        inaturalist: "iNaturalist",
+        steli: "STELI",
+        both: "Combined",
+    };
+    countText.textContent = "Search in progress.";
+    resultsBody.innerHTML = `
+        <tr>
+            <td colspan="11" class="empty-state">
+                Searching ${labels[source] || "selected source"}...
+            </td>
+        </tr>
+    `;
 }
 
 function saveLastSearch(payload) {
@@ -191,7 +243,7 @@ function restoreLastSearch() {
             syncSourceCards();
         }
 
-        renderResults(saved.data);
+        renderResults(saved.data, saved.params && saved.params.source);
         setMessage("Results restored after reload.", "neutral");
     } catch {
         // ignore parse errors
@@ -374,6 +426,7 @@ async function runSearch() {
 
     try {
         setMessage("Search in progress...", "neutral");
+        renderSearchInProgress(source);
         setLoading(true);
 
         let data = [];
@@ -414,7 +467,7 @@ async function runSearch() {
 
         if (currentRunId !== searchRunId) return;
 
-        renderResults(data);
+        renderResults(data, source);
         saveLastSearch({
             params: { source, family, species, genus, country, dateFrom, dateTo, qualityGrade, resultLimit, maxPages },
             data,
@@ -518,16 +571,7 @@ exportBtn.addEventListener("click", function () {
             setLoading(true);
 
             const blob = await downloadBlobWithProgress(url);
-            const objectUrl = URL.createObjectURL(blob);
-
-            const a = document.createElement("a");
-            a.href = objectUrl;
-            a.download = defaultFilename;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-
-            URL.revokeObjectURL(objectUrl);
+            triggerBlobDownload(blob, defaultFilename);
 
             setMessage("CSV downloaded.", "success");
             window.setTimeout(hideDownloadProgress, 1200);

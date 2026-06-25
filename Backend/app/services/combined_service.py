@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import date
 import logging
 from pathlib import Path
@@ -34,6 +34,22 @@ def _future_rows(source_name: str, future) -> list[dict[str, Any]]:
         logger.exception("Combined search source failed: %s", source_name)
         return []
     return rows or []
+
+
+def _collect_source_rows(futures: dict[str, Any], source_timeout: float | None) -> dict[str, list[dict[str, Any]]]:
+    if source_timeout is not None:
+        done, pending = wait(futures.values(), timeout=source_timeout)
+        for source_name, future in futures.items():
+            if future in pending:
+                logger.warning("Combined search source timed out: %s", source_name)
+                future.cancel()
+    else:
+        done = set(futures.values())
+
+    return {
+        source_name: _future_rows(source_name, future) if future in done else []
+        for source_name, future in futures.items()
+    }
 
 
 def _enrich_combined_iucn(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -80,6 +96,7 @@ def search_gbif_and_silene_expert(
     include_iucn: bool = True,
     max_pages: int | None = None,
     max_records: int | None = None,
+    source_timeout: float | None = None,
 ) -> list[dict[str, Any]]:
     """
     Recherche GBIF + Silene Expert + iNaturalist + STELI en parallele et exporte UN SEUL CSV.
@@ -87,7 +104,8 @@ def search_gbif_and_silene_expert(
     effective_export_file = export_file or COMBINED_EXPORT_FILE
     enrich_after_merge = bool(include_iucn)
 
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    executor = ThreadPoolExecutor(max_workers=4)
+    try:
         f_gbif = executor.submit(
             search_gbif,
             family=family,
@@ -153,10 +171,21 @@ def search_gbif_and_silene_expert(
             include_iucn=False if enrich_after_merge else include_iucn,
         )
 
-        gbif_rows = _future_rows("GBIF", f_gbif)
-        silene_rows = _future_rows("Silene Expert", f_silene)
-        inaturalist_rows = _future_rows("iNaturalist", f_inaturalist)
-        steli_rows = _future_rows("STELI", f_steli)
+        rows_by_source = _collect_source_rows(
+            {
+                "GBIF": f_gbif,
+                "Silene Expert": f_silene,
+                "iNaturalist": f_inaturalist,
+                "STELI": f_steli,
+            },
+            source_timeout,
+        )
+        gbif_rows = rows_by_source["GBIF"]
+        silene_rows = rows_by_source["Silene Expert"]
+        inaturalist_rows = rows_by_source["iNaturalist"]
+        steli_rows = rows_by_source["STELI"]
+    finally:
+        executor.shutdown(wait=source_timeout is None, cancel_futures=True)
 
     if enrich_after_merge:
         all_rows = _enrich_combined_iucn((gbif_rows or []) + (silene_rows or []) + (inaturalist_rows or []) + (steli_rows or []))

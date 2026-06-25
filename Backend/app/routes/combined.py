@@ -44,6 +44,7 @@ def search(
         limit=limit,
         page=page,
         export_csv=False,
+        source_timeout=12,
     )
     write_rows_export(
         COMBINED_EXPORT_FILE,
