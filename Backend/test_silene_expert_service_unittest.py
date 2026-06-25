@@ -52,6 +52,39 @@ class TestSileneExpertAuth(unittest.TestCase):
         session.post.assert_called_once()
         self.assertIn("/api/auth/login", session.post.call_args.args[0])
 
+    def test_silene_trust_env_can_enable_server_proxy_settings(self):
+        with patch.dict("os.environ", {"SILENE_TRUST_ENV": "true"}, clear=True):
+            session = silene_expert_service._session()
+
+        self.assertTrue(session.trust_env)
+
+    def test_silene_trust_env_defaults_to_disabled(self):
+        with patch.dict("os.environ", {}, clear=True):
+            session = silene_expert_service._session()
+
+        self.assertFalse(session.trust_env)
+
+    def test_status_does_not_expose_secret_values(self):
+        with patch.dict(
+            "os.environ",
+            {
+                "SILENE_EXPERT_LOGIN": "user@example.test",
+                "SILENE_EXPERT_PASSWORD": "super-secret",
+                "SILENE_EXPERT_TOKEN": "manual-token",
+                "SILENE_TRUST_ENV": "true",
+            },
+            clear=True,
+        ), patch("Backend.app.services.silene_expert_service._get_token", return_value="manual-token"):
+            status = silene_expert_service.diagnose_silene_expert()
+
+        self.assertTrue(status["login_configured"])
+        self.assertTrue(status["password_configured"])
+        self.assertTrue(status["manual_token_configured"])
+        self.assertTrue(status["token_available"])
+        self.assertTrue(status["trust_env"])
+        self.assertNotIn("super-secret", str(status))
+        self.assertNotIn("manual-token", str(status))
+
 
 class TestSileneExpertMappedSearch(unittest.TestCase):
     def test_direct_search_adds_iucn_status(self):

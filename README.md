@@ -67,6 +67,9 @@ SILENE_EXPERT_TOKEN=
 SILENE_EXPERT_LOGIN=
 SILENE_EXPERT_PASSWORD=
 SILENE_EXPERT_APP_ID=3
+
+# Serveur avec proxy/certificats systeme, souvent necessaire en universite
+SILENE_TRUST_ENV=true
 ```
 
 Notes :
@@ -74,6 +77,8 @@ Notes :
 - `IUCN_TOKEN` est necessaire pour remplir la colonne `status` avec le statut Red List.
 - `SILENE_EXPERT_TOKEN` reste supporte.
 - Si `SILENE_EXPERT_LOGIN` et `SILENE_EXPERT_PASSWORD` sont renseignes, le backend peut obtenir et rafraichir le token Silene automatiquement.
+- Sur un serveur universitaire qui passe par un proxy, ajouter `SILENE_TRUST_ENV=true` pour autoriser Silene/TaxHub a utiliser `HTTP_PROXY`, `HTTPS_PROXY` et `REQUESTS_CA_BUNDLE`.
+- Diagnostic Silene sans secrets : ouvrir `GET /silene-expert/status`.
 - Ne jamais committer le fichier `.env`.
 
 ## Lancer le backend

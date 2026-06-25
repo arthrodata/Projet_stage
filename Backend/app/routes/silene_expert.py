@@ -13,11 +13,17 @@ from Backend.app.utils.history import remember_search
 
 from Backend.app.services.silene_expert_service import (
     EXPORT_FILE,
+    diagnose_silene_expert,
     search_silene_expert,
     search_silene_expert_mapped,
 )
 
 router = APIRouter(prefix="/silene-expert", tags=["silene-expert"])
+
+
+@router.get("/status")
+def status():
+    return diagnose_silene_expert()
 
 
 @router.post("/synthese")

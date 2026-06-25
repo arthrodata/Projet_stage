@@ -26,6 +26,13 @@ EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "resultats_silen
 DEFAULT_SILENE_EXPERT_APP_ID = "3"
 
 
+def _env_flag(name: str, default: bool = False) -> bool:
+    value = (os.getenv(name) or "").strip().lower()
+    if not value:
+        return default
+    return value in {"1", "true", "yes", "on"}
+
+
 def _normalize_silene_rows(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
     prepared: list[dict[str, Any]] = []
     for row in rows:
@@ -37,8 +44,9 @@ def _normalize_silene_rows(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
 
 def _session() -> requests.Session:
     s = requests.Session()
-    # Ignore les variables proxy (certaines configs cassent les appels HTTP)
-    s.trust_env = False
+    # En local on ignore les proxys par defaut, mais certains serveurs
+    # universitaires exigent HTTP(S)_PROXY / REQUESTS_CA_BUNDLE.
+    s.trust_env = _env_flag("SILENE_TRUST_ENV", default=False)
     return s
 
 
@@ -187,6 +195,22 @@ def _force_refresh_token() -> Optional[str]:
     return fresh
 
 
+def diagnose_silene_expert() -> dict[str, Any]:
+    token = _get_token()
+    return {
+        "base_url": SILENE_EXPERT_BASE_URL,
+        "taxhub_url": TAXHUB_API_BASE_URL,
+        "login_configured": bool((os.getenv("SILENE_EXPERT_LOGIN") or "").strip()),
+        "password_configured": bool((os.getenv("SILENE_EXPERT_PASSWORD") or "").strip()),
+        "manual_token_configured": bool((os.getenv("SILENE_EXPERT_TOKEN") or os.getenv("SILENE_TOKEN") or "").strip()),
+        "token_available": bool(token),
+        "token_valid": bool(token and _token_is_valid(token)),
+        "trust_env": _session().trust_env,
+        "https_proxy_configured": bool((os.getenv("HTTPS_PROXY") or os.getenv("https_proxy") or "").strip()),
+        "requests_ca_bundle_configured": bool((os.getenv("REQUESTS_CA_BUNDLE") or "").strip()),
+    }
+
+
 def _taxhub_lookup_cd_ref(name: str) -> Optional[int]:
     """
     Convertit un nom (famille/genre/espece) en cd_ref via TaxHub.
@@ -197,8 +221,7 @@ def _taxhub_lookup_cd_ref(name: str) -> Optional[int]:
         return None
 
     try:
-        s = requests.Session()
-        s.trust_env = False
+        s = _session()
         r = s.get(
             f"{TAXHUB_API_BASE_URL}/taxref/allnamebylist",
             params={"search_name": query, "limit": 20},
@@ -244,8 +267,7 @@ def _taxhub_get_taxon_info(cd_nom: int) -> dict[str, Any]:
     Recupere les infos taxonomiques via TaxHub (ex: famille, ordre...).
     """
     try:
-        s = requests.Session()
-        s.trust_env = False
+        s = _session()
         r = s.get(f"{TAXHUB_API_BASE_URL}/taxref/{int(cd_nom)}", timeout=20)
         r.raise_for_status()
         data = r.json()
@@ -266,8 +288,7 @@ def _taxhub_get_cd_refs_by_family(family: str, max_items: int = 50) -> list[int]
         return []
 
     try:
-        s = requests.Session()
-        s.trust_env = False
+        s = _session()
         r = s.get(
             f"{TAXHUB_API_BASE_URL}/taxref",
             params={"famille": fam, "id_rang": "ES", "limit": int(max_items), "offset": 0},
