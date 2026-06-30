@@ -47,6 +47,9 @@ select {
 .sidebar {
     position: sticky;
     top: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
     height: 100vh;
     padding: 28px 16px;
     color: #fff;
@@ -90,7 +93,7 @@ select {
 .side-nav {
     display: grid;
     gap: 10px;
-    padding: 10px 0 22px;
+    padding: 10px 0 18px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -127,7 +130,7 @@ select {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin: 30px 8px 0;
+    margin: 20px 8px 0;
     padding: 16px;
     border: 1px solid rgba(255, 255, 255, 0.09);
     border-radius: 18px;
@@ -137,7 +140,8 @@ select {
 .auth-card {
     display: grid;
     align-items: start;
-    gap: 12px;
+    gap: 10px;
+    margin-top: 12px;
 }
 
 .auth-card-main {
