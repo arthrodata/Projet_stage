@@ -1,5 +1,5 @@
-const STORAGE_KEY = "biodiversity:last_search_v1";
-const LAST_RESULTS_KEY = "biodiversity_last_results";
+const STORAGE_KEY = getAuthStorageKey("biodiversity:last_search_v1");
+const LAST_RESULTS_KEY = getAuthStorageKey("biodiversity_last_results");
 const API_URL = "http://127.0.0.1:8000";
 const CONNECTED_SOURCES = ["GBIF", "Silene Expert", "iNaturalist", "STELI"];
 const CSV_EXPORTS = ["GBIF", "Silene Expert", "iNaturalist", "STELI", "Combined"];

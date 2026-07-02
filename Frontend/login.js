@@ -1,11 +1,15 @@
 const API_URL = "http://127.0.0.1:8000";
 
-const form = document.getElementById("authForm");
-const firstNameInput = document.getElementById("firstName");
-const lastNameInput = document.getElementById("lastName");
-const emailInput = document.getElementById("email");
-const passwordInput = document.getElementById("password");
-const registerBtn = document.getElementById("registerBtn");
+const loginForm = document.getElementById("loginForm");
+const signupForm = document.getElementById("signupForm");
+const loginEmailInput = document.getElementById("loginEmail");
+const loginPasswordInput = document.getElementById("loginPassword");
+const signupFirstNameInput = document.getElementById("signupFirstName");
+const signupLastNameInput = document.getElementById("signupLastName");
+const signupEmailInput = document.getElementById("signupEmail");
+const signupPasswordInput = document.getElementById("signupPassword");
+const loginModeBtn = document.getElementById("loginModeBtn");
+const signupModeBtn = document.getElementById("signupModeBtn");
 const authMessage = document.getElementById("authMessage");
 
 function setAuthMessage(text, type) {
@@ -18,47 +22,84 @@ function nextUrl() {
     return params.get("next") || "dashboard.html";
 }
 
-async function submitAuth(mode) {
-    const firstName = firstNameInput.value.trim();
-    const lastName = lastNameInput.value.trim();
-    const email = emailInput.value.trim();
-    const password = passwordInput.value;
+function setAuthMode(mode) {
+    const isSignup = mode === "register";
+    loginForm.hidden = isSignup;
+    signupForm.hidden = !isSignup;
+    loginModeBtn.classList.toggle("active", !isSignup);
+    signupModeBtn.classList.toggle("active", isSignup);
+    setAuthMessage(isSignup ? "Create your account." : "Sign in with your email and password.", "neutral");
+}
+
+async function submitLogin() {
+    const email = loginEmailInput.value.trim();
+    const password = loginPasswordInput.value;
     if (!email || !password) {
-        setAuthMessage("Email et mot de passe requis.", "error");
-        return;
-    }
-    if (mode === "register" && (!firstName || !lastName)) {
-        setAuthMessage("Prenom et nom requis pour creer un compte.", "error");
+        setAuthMessage("Email and password are required.", "error");
         return;
     }
 
-    setAuthMessage(mode === "register" ? "Creation du compte..." : "Connexion...", "neutral");
-    const response = await fetch(`${API_URL}/auth/${mode}`, {
+    setAuthMessage("Signing in...", "neutral");
+    const response = await fetch(`${API_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(payload.detail || "Authentication error.");
+    }
+    setAuthSession(payload);
+    window.location.href = nextUrl();
+}
+
+async function submitSignup() {
+    const firstName = signupFirstNameInput.value.trim();
+    const lastName = signupLastNameInput.value.trim();
+    const email = signupEmailInput.value.trim();
+    const password = signupPasswordInput.value;
+    if (!email || !password) {
+        setAuthMessage("Email and password are required.", "error");
+        return;
+    }
+    if (!firstName || !lastName) {
+        setAuthMessage("First name and last name are required to create an account.", "error");
+        return;
+    }
+
+    setAuthMessage("Creating account...", "neutral");
+    const response = await fetch(`${API_URL}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, first_name: firstName, last_name: lastName }),
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-        throw new Error(payload.detail || "Erreur authentification.");
+        throw new Error(payload.detail || "Authentication error.");
     }
     setAuthSession(payload);
     window.location.href = nextUrl();
 }
 
-form.addEventListener("submit", async (event) => {
+loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     try {
-        await submitAuth("login");
+        await submitLogin();
     } catch (error) {
         setAuthMessage(error.message, "error");
     }
 });
 
-registerBtn.addEventListener("click", async () => {
+signupForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
     try {
-        await submitAuth("register");
+        await submitSignup();
     } catch (error) {
         setAuthMessage(error.message, "error");
     }
 });
+
+loginModeBtn.addEventListener("click", () => setAuthMode("login"));
+signupModeBtn.addEventListener("click", () => setAuthMode("register"));
+
+setAuthMode("login");

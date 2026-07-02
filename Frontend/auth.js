@@ -29,6 +29,12 @@ function getAuthUser() {
     }
 }
 
+function getAuthStorageKey(baseKey) {
+    const user = getAuthUser();
+    const userKey = user && user.id ? `user:${user.id}` : "anonymous";
+    return `${baseKey}:${userKey}`;
+}
+
 function setAuthSession(payload) {
     if (!payload || !payload.access_token) return;
     clearLegacyPersistentAuth();

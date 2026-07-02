@@ -3,8 +3,7 @@ console.log("exports.js loaded");
 requireAuth();
 
 const API_URL = "http://127.0.0.1:8000";
-const STORAGE_KEY = "biodiversity:last_search_v1";
-const HISTORY_KEY = "biodiversity:search_history_v1";
+const HISTORY_KEY = getAuthStorageKey("biodiversity:search_history_v1");
 const DEFAULT_RESULT_LIMIT = "300";
 const DEFAULT_MAX_EXPORT_PAGES = "20";
 
@@ -126,22 +125,7 @@ function getHistory() {
     const rawHistory = readLocalStorage(HISTORY_KEY);
     const parsedHistory = rawHistory ? safeParseJson(rawHistory) : null;
     const history = Array.isArray(parsedHistory) ? parsedHistory : [];
-
-    if (history.length > 0) return history.slice(0, 10);
-
-    const rawLast = readLocalStorage(STORAGE_KEY);
-    const last = rawLast ? safeParseJson(rawLast) : null;
-    if (!last || !Array.isArray(last.data)) return [];
-
-    const migrated = [{
-        id: last.id || `migrated-${last.savedAt || Date.now()}`,
-        savedAt: last.savedAt,
-        params: last.params || {},
-        data: last.data,
-    }];
-
-    writeLocalStorage(HISTORY_KEY, JSON.stringify(migrated));
-    return migrated;
+    return history.slice(0, 10);
 }
 
 function historyTimestamp(entry) {

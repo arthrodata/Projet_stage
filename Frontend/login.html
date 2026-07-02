@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BioData Explorer - Connexion</title>
+    <title>BioData Explorer - Login</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -16,41 +16,59 @@
             <div class="brand-mark">B</div>
             <div>
                 <h1>BioData Explorer</h1>
-                <p>Espace personnel</p>
+                <p>Personal workspace</p>
             </div>
         </div>
 
         <div class="panel-heading auth-heading">
             <div>
-                <span class="section-kicker">Connexion</span>
-                <h2>Acceder a votre historique</h2>
-                <p>Connectez-vous pour conserver vos recherches, exports et graphiques separement des autres utilisateurs.</p>
+                <span class="section-kicker">Account</span>
+                <h2>Access your workspace</h2>
+                <p>Sign in to keep your searches, exports and charts separate from other users.</p>
             </div>
-            <div id="authMessage" class="message-pill neutral">Connectez-vous ou creez un compte.</div>
+            <div id="authMessage" class="message-pill neutral">Sign in or create an account.</div>
         </div>
 
-        <form id="authForm" class="auth-form">
-            <div class="auth-name-grid">
-                <div class="field">
-                    <label for="firstName">Prenom</label>
-                    <input id="firstName" type="text" autocomplete="given-name" placeholder="Oussama">
-                </div>
-                <div class="field">
-                    <label for="lastName">Nom</label>
-                    <input id="lastName" type="text" autocomplete="family-name" placeholder="Bekolli">
-                </div>
+        <div class="auth-mode-tabs" role="group" aria-label="Authentication mode">
+            <button type="button" id="loginModeBtn" class="auth-mode active">Log in</button>
+            <button type="button" id="signupModeBtn" class="auth-mode">Sign up</button>
+        </div>
+
+        <form id="loginForm" class="auth-form">
+            <div class="field">
+                <label for="loginEmail">Email</label>
+                <input id="loginEmail" type="email" autocomplete="email" required placeholder="first.last@university.edu">
             </div>
             <div class="field">
-                <label for="email">Email</label>
-                <input id="email" type="email" autocomplete="email" required placeholder="prenom.nom@universite.fr">
-            </div>
-            <div class="field">
-                <label for="password">Mot de passe</label>
-                <input id="password" type="password" autocomplete="current-password" required minlength="6">
+                <label for="loginPassword">Password</label>
+                <input id="loginPassword" type="password" autocomplete="current-password" required minlength="6">
             </div>
             <div class="button-row">
-                <button type="submit" id="loginBtn" class="btn-primary">Se connecter</button>
-                <button type="button" id="registerBtn" class="btn-export">Creer un compte</button>
+                <button type="submit" id="loginBtn" class="btn-primary">Log in</button>
+            </div>
+        </form>
+
+        <form id="signupForm" class="auth-form" hidden>
+            <div class="auth-name-grid">
+                <div class="field">
+                    <label for="signupFirstName">First name</label>
+                    <input id="signupFirstName" type="text" autocomplete="given-name" placeholder="Oussama">
+                </div>
+                <div class="field">
+                    <label for="signupLastName">Last name</label>
+                    <input id="signupLastName" type="text" autocomplete="family-name" placeholder="Bekolli">
+                </div>
+            </div>
+            <div class="field">
+                <label for="signupEmail">Email</label>
+                <input id="signupEmail" type="email" autocomplete="email" required placeholder="first.last@university.edu">
+            </div>
+            <div class="field">
+                <label for="signupPassword">Password</label>
+                <input id="signupPassword" type="password" autocomplete="new-password" required minlength="6">
+            </div>
+            <div class="button-row">
+                <button type="submit" id="signupSubmitBtn" class="btn-primary">Create account</button>
             </div>
         </form>
     </section>
