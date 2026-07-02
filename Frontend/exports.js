@@ -87,12 +87,12 @@ function escapeHtml(value) {
 }
 
 function formatSavedDate(value) {
-    if (!value) return "Aucun export r\u00e9cent";
+    if (!value) return "No recent export";
 
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "Aucun export r\u00e9cent";
+    if (Number.isNaN(date.getTime())) return "No recent export";
 
-    return date.toLocaleString("fr-FR", {
+    return date.toLocaleString("en-US", {
         year: "numeric",
         month: "2-digit",
         day: "2-digit",
@@ -119,7 +119,7 @@ function getSearchLabel(entry, index) {
         .map((value) => String(value || "").trim())
         .filter(Boolean);
 
-    return parts.length > 0 ? parts.join(" / ") : `Recherche ${index + 1}`;
+    return parts.length > 0 ? parts.join(" / ") : `Search ${index + 1}`;
 }
 
 function getHistory() {
@@ -270,14 +270,14 @@ function setMessage(text, type) {
 function setDownloadLoading(button, isLoading) {
     if (!button) return;
     button.disabled = isLoading;
-    button.querySelector(".download-label").textContent = isLoading ? "Pr\u00e9paration..." : "T\u00e9l\u00e9charger";
+    button.querySelector(".download-label").textContent = isLoading ? "Preparing..." : "Download";
 }
 
 function formatBytes(bytes) {
     const value = Number(bytes || 0);
-    if (!Number.isFinite(value) || value <= 0) return "0 Ko";
-    if (value < 1024 * 1024) return `${Math.round(value / 1024)} Ko`;
-    return `${(value / (1024 * 1024)).toFixed(1)} Mo`;
+    if (!Number.isFinite(value) || value <= 0) return "0 KB";
+    if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
+    return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function formatSeconds(seconds) {
@@ -292,7 +292,7 @@ async function fetchCsvWithProgress(url, filename) {
     const startedAt = Date.now();
     let timer = window.setInterval(() => {
         const elapsed = Math.round((Date.now() - startedAt) / 1000);
-        setMessage(`Preparation de ${filename}... 0% (${elapsed} s)`, "neutral");
+        setMessage(`Preparing ${filename}... 0% (${elapsed}s)`, "neutral");
     }, 1000);
 
     let response;
@@ -324,7 +324,7 @@ async function fetchCsvWithProgress(url, filename) {
     const contentType = response.headers.get("Content-Type") || "text/csv;charset=utf-8";
 
     if (!response.body) {
-        setMessage(`Telechargement de ${filename}...`, "neutral");
+        setMessage(`Downloading ${filename}...`, "neutral");
         return response.blob();
     }
 
@@ -345,11 +345,11 @@ async function fetchCsvWithProgress(url, filename) {
             const speed = received / elapsedSeconds;
             const remainingSeconds = speed > 0 ? (total - received) / speed : 0;
             setMessage(
-                `Telechargement ${filename}: ${percent}% - ${formatBytes(received)} / ${formatBytes(total)} - reste ${formatSeconds(remainingSeconds)}`,
+                `Downloading ${filename}: ${percent}% - ${formatBytes(received)} / ${formatBytes(total)} - ${formatSeconds(remainingSeconds)} left`,
                 "neutral"
             );
         } else {
-            setMessage(`Telechargement ${filename} en cours - ${formatBytes(received)} recus`, "neutral");
+            setMessage(`Downloading ${filename} - ${formatBytes(received)} received`, "neutral");
         }
     }
 
@@ -361,16 +361,16 @@ async function downloadCsv(entry, button) {
 
     try {
         setDownloadLoading(button, true);
-        setMessage(`Pr\u00e9paration de l'export complet ${config.filename}...`, "neutral");
+        setMessage(`Preparing full export ${config.filename}...`, "neutral");
 
         const blob = await fetchCsvWithProgress(buildDownloadUrl(entry), config.filename);
         triggerBlobDownload(blob, config.filename);
 
-        setMessage(`${config.filename} t\u00e9l\u00e9charg\u00e9.`, "success");
+        setMessage(`${config.filename} downloaded.`, "success");
     } catch (error) {
         console.error(error);
         const detail = error && error.message ? ` ${error.message}` : "";
-        setMessage(`Erreur: impossible de t\u00e9l\u00e9charger le CSV.${detail}`, "error");
+        setMessage(`Error: unable to download the CSV.${detail}`, "error");
     } finally {
         setDownloadLoading(button, false);
     }
@@ -379,7 +379,7 @@ async function downloadCsv(entry, button) {
 function renderEmptyState(body) {
     body.innerHTML = `
         <tr>
-            <td colspan="6" class="empty-state">Aucun export r\u00e9cent.</td>
+            <td colspan="6" class="empty-state">No recent export.</td>
         </tr>
     `;
 }
@@ -406,17 +406,17 @@ async function renderExports() {
     const latestRecords = getRecordCount(latest);
 
     document.getElementById("summarySearches").textContent =
-        `${formatNumber(history.length)} recherche${history.length > 1 ? "s" : ""}`;
+        `${formatNumber(history.length)} search${history.length !== 1 ? "es" : ""}`;
     document.getElementById("summaryRecords").textContent =
         `${formatNumber(latestRecords)} record${latestRecords > 1 ? "s" : ""}`;
     document.getElementById("summaryDate").textContent =
-        latest ? formatSavedDate(latest.savedAt) : "Aucun export r\u00e9cent";
+        latest ? formatSavedDate(latest.savedAt) : "No recent export";
 
     body.innerHTML = "";
 
     if (history.length === 0) {
         renderEmptyState(body);
-        setMessage("Aucun export r\u00e9cent.", "neutral");
+        setMessage("No recent export.", "neutral");
         return;
     }
 
@@ -428,7 +428,7 @@ async function renderExports() {
         tr.innerHTML = `
             <td>
                 <span class="file-name">${searchLabel}</span>
-                <span class="file-path">#${index + 1} dans les 10 derni\u00e8res recherches</span>
+                <span class="file-path">#${index + 1} in the last 10 searches</span>
             </td>
             <td>
                 <span class="file-name">${config.filename}</span>
@@ -440,7 +440,7 @@ async function renderExports() {
             <td>
                 <button type="button" class="download-btn" data-filename="${config.filename}">
                     <span class="download-icon" aria-hidden="true"></span>
-                    <span class="download-label">T\u00e9l\u00e9charger</span>
+                    <span class="download-label">Download</span>
                 </button>
             </td>
         `;
@@ -450,7 +450,7 @@ async function renderExports() {
         body.appendChild(tr);
     });
 
-    setMessage(`${formatNumber(history.length)} recherche${history.length > 1 ? "s" : ""} dans l'historique.`, "neutral");
+    setMessage(`${formatNumber(history.length)} search${history.length !== 1 ? "es" : ""} in history.`, "neutral");
 }
 
 renderAuthBadge();

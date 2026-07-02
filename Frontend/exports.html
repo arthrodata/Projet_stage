@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BioData Explorer - Historique CSV</title>
+    <title>BioData Explorer - CSV History</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -31,7 +31,7 @@
             </a>
             <a class="nav-item" href="search.html">
                 <span class="nav-icon">RE</span>
-                Recherche
+                Search
             </a>
             <a class="nav-item active" href="exports.html">
                 <span class="nav-icon">CSV</span>
@@ -52,32 +52,32 @@
         <header class="exports-topbar">
             <div>
                 <span class="section-kicker">Exports</span>
-                <h2>Historique CSV</h2>
-                <p>Consultez les 10 derni&egrave;res recherches CSV g&eacute;n&eacute;r&eacute;es par les sources connect&eacute;es.</p>
+                <h2>CSV History</h2>
+                <p>Last 10 generated exports.</p>
             </div>
         </header>
 
         <section class="panel exports-panel">
             <div class="panel-heading compact">
                 <div>
-                    <span class="section-kicker">Fichiers</span>
-                    <h3>Historique des exports CSV</h3>
+                    <span class="section-kicker">Files</span>
+                    <h3>Recent exports</h3>
                 </div>
-                <div id="exportsMessage" class="message-pill neutral">Chargement...</div>
+                <div id="exportsMessage" class="message-pill neutral">Loading...</div>
             </div>
 
             <div class="exports-summary">
                 <article>
-                    <span>Recherches sauvegard&eacute;es</span>
-                    <strong id="summarySearches">0 recherche</strong>
+                    <span>Searches</span>
+                    <strong id="summarySearches">0 searches</strong>
                 </article>
                 <article>
-                    <span>Derni&egrave;re recherche</span>
+                    <span>Records</span>
                     <strong id="summaryRecords">0 records</strong>
                 </article>
                 <article>
-                    <span>Dernier export</span>
-                    <strong id="summaryDate">Aucun export r&eacute;cent</strong>
+                    <span>Latest</span>
+                    <strong id="summaryDate">No recent export</strong>
                 </article>
             </div>
 
@@ -85,8 +85,8 @@
                 <table class="exports-table">
                     <thead>
                         <tr>
-                            <th>Recherche</th>
-                            <th>Fichier</th>
+                            <th>Search</th>
+                            <th>File</th>
                             <th>Source</th>
                             <th>Records</th>
                             <th>Date</th>
