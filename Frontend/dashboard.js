@@ -377,7 +377,7 @@ function renderSpeciesDistribution(distribution) {
     if (!Array.isArray(distribution) || distribution.length === 0) {
         const empty = document.createElement("p");
         empty.className = "species-empty-state";
-        empty.textContent = "Aucune donn\u00e9e disponible pour g\u00e9n\u00e9rer le graphique.";
+        empty.textContent = "No data available to generate the chart.";
         chart.appendChild(empty);
         return;
     }
@@ -433,7 +433,7 @@ function buildCountryDistribution(results) {
     // Group by country and keep every coordinate point from the last saved search.
     for (const item of results || []) {
         const coords = parseCoordinates(item && item.coordinates);
-        const country = normalizeCountry(item && item.country) || (coords ? "Pays non renseigne" : "");
+        const country = normalizeCountry(item && item.country) || (coords ? "Country not provided" : "");
         if (!country) continue;
 
         if (!grouped.has(country)) {
@@ -494,14 +494,14 @@ function renderGeoDistributionChart(data) {
 
     if (!Array.isArray(data) || data.length === 0) {
         appendGeoRoute(map);
-        renderGeoEmptyState(map, "Aucune donn\u00e9e disponible pour g\u00e9n\u00e9rer la r\u00e9partition g\u00e9ographique.");
+        renderGeoEmptyState(map, "No data available to generate the geographic distribution.");
         return;
     }
 
     const countriesWithPoints = data.filter((item) => Array.isArray(item.points) && item.points.length > 0);
     if (countriesWithPoints.length === 0) {
         appendGeoRoute(map);
-        renderGeoEmptyState(map, "Aucune coordonn\u00e9e disponible pour afficher les points sur la carte.");
+        renderGeoEmptyState(map, "No coordinates available to display points on the map.");
         return;
     }
 
@@ -595,7 +595,7 @@ function renderLastRows(rows) {
         const td = document.createElement("td");
         td.colSpan = 4;
         td.className = "empty-state";
-        td.textContent = "Aucune recherche sauvegardee.";
+        td.textContent = "No saved search.";
         tr.appendChild(td);
         tbody.appendChild(tr);
         return;
@@ -603,10 +603,10 @@ function renderLastRows(rows) {
 
     rows.forEach((item) => {
         const tr = document.createElement("tr");
-        appendCell(tr, pick(item, ["source_bdd"]) || "Non renseigne");
-        appendCell(tr, pick(item, ["country"]) || "Non renseigne");
-        appendCell(tr, pick(item, ["species"]) || "Non renseigne");
-        appendCell(tr, pick(item, ["eventDate"]) || "Non renseigne");
+        appendCell(tr, pick(item, ["source_bdd"]) || "Not provided");
+        appendCell(tr, pick(item, ["country"]) || "Not provided");
+        appendCell(tr, pick(item, ["species"]) || "Not provided");
+        appendCell(tr, pick(item, ["eventDate"]) || "Not provided");
         tbody.appendChild(tr);
     });
 }
@@ -655,9 +655,9 @@ async function initDashboard() {
 
     try {
         if (window.location && window.location.protocol === "file:") {
-            if (msg) msg.textContent = "Ouvre la page via http://127.0.0.1:8081 pour lire la derniere recherche.";
+            if (msg) msg.textContent = "Open the page via http://127.0.0.1:8081 to read the latest search.";
         } else if (msg) {
-            msg.textContent = "Chargement...";
+            msg.textContent = "Loading...";
         }
 
         const saved = await readLatestSearch();
@@ -676,7 +676,7 @@ async function initDashboard() {
         setText("statSpecies", formatNumber(uniqueSpecies));
         setText(
             "statSourcesMeta",
-            occurrences > 0 ? `${formatNumber(detectedSources)} source(s) detectee(s)` : `${connectedSources} configurees`
+            occurrences > 0 ? `${formatNumber(detectedSources)} source(s) detected` : `${connectedSources} configured`
         );
         setText("statExportsMeta", CSV_EXPORTS.join(" / "));
         renderSpeciesDistribution(calculateSpeciesDistribution(data));
@@ -684,13 +684,13 @@ async function initDashboard() {
 
         if (!saved || !Array.isArray(saved.data)) {
             if (msg && !(window.location && window.location.protocol === "file:")) {
-                msg.textContent = "Aucune recherche sauvegardee.";
+                msg.textContent = "No saved search.";
             }
             renderLastRows([]);
             return;
         }
 
-        if (msg) msg.textContent = "Derniere recherche chargee";
+        if (msg) msg.textContent = "Latest search loaded";
 
         renderLastRows(data.slice(-5).reverse());
     } catch (error) {

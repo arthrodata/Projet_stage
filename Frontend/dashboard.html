@@ -21,7 +21,7 @@
             <div class="brand-mark">B</div>
             <div>
                 <h1>BioData Explorer</h1>
-                <p>Occurrences biologiques</p>
+                <p>Biological occurrences</p>
             </div>
         </div>
 
@@ -32,7 +32,7 @@
             </a>
             <a class="nav-item" href="search.html#searchPanel">
                 <span class="nav-icon">RE</span>
-                Recherche
+                Search
             </a>
             <a class="nav-item" href="exports.html">
                 <span class="nav-icon">CSV</span>
@@ -40,13 +40,6 @@
             </a>
         </nav>
 
-        <div class="api-card">
-            <span class="status-dot"></span>
-            <div>
-                <strong>Backend FastAPI</strong>
-                <p>http://127.0.0.1:8000</p>
-            </div>
-        </div>
     </aside>
 
     <main class="main-area">
@@ -54,36 +47,36 @@
             <div class="dash-title">
                 <span class="section-kicker">Dashboard</span>
                 <h2>BioData Explorer</h2>
-                <p class="dash-subtitle">Vue d'ensemble des dernieres recherches et exports.</p>
+                <p class="dash-subtitle">Overview of recent searches and exports.</p>
             </div>
         </header>
 
-        <section class="dash-cards" aria-label="Statistiques">
+        <section class="dash-cards" aria-label="Statistics">
             <article class="dash-card dash-card-blue">
                 <div class="dash-card-head">
-                    <span class="dash-card-title">Sources connectees</span>
+                    <span class="dash-card-title">Connected sources</span>
                     <div class="dash-card-icon">SRC</div>
                 </div>
                 <div class="dash-card-value" id="statSources">4</div>
-                <div class="dash-card-meta" id="statSourcesMeta">4 configurees</div>
+                <div class="dash-card-meta" id="statSourcesMeta">4 configured</div>
             </article>
 
             <article class="dash-card dash-card-green">
                 <div class="dash-card-head">
-                    <span class="dash-card-title">Occurrences recuperees</span>
+                    <span class="dash-card-title">Retrieved occurrences</span>
                     <div class="dash-card-icon">OCC</div>
                 </div>
                 <div class="dash-card-value" id="statOccurrences">0</div>
-                <div class="dash-card-meta" id="statOccurrencesMeta">derniere recherche</div>
+                <div class="dash-card-meta" id="statOccurrencesMeta">latest search</div>
             </article>
 
             <article class="dash-card dash-card-violet">
                 <div class="dash-card-head">
-                    <span class="dash-card-title">Especes detectees</span>
+                    <span class="dash-card-title">Detected species</span>
                     <div class="dash-card-icon">SP</div>
                 </div>
                 <div class="dash-card-value" id="statSpecies">0</div>
-                <div class="dash-card-meta" id="statSpeciesMeta">uniques</div>
+                <div class="dash-card-meta" id="statSpeciesMeta">unique</div>
             </article>
 
             <article class="dash-card dash-card-orange">
@@ -99,22 +92,22 @@
         <section class="panel dash-panel species-distribution-panel" aria-labelledby="speciesDistributionTitle">
             <div class="panel-heading compact">
                 <div>
-                    <span class="section-kicker">Analyse</span>
-                    <h3 id="speciesDistributionTitle">Distribution par esp&egrave;ce</h3>
+                    <span class="section-kicker">Analysis</span>
+                    <h3 id="speciesDistributionTitle">Distribution by species</h3>
                 </div>
             </div>
 
             <div class="species-chart-card">
                 <div id="speciesChart" class="species-chart" aria-live="polite"></div>
-                <div id="speciesLegend" class="species-legend" aria-label="Legende du graphique"></div>
+                <div id="speciesLegend" class="species-legend" aria-label="Chart legend"></div>
             </div>
         </section>
 
         <section class="panel dash-panel geo-distribution-panel" aria-labelledby="geoDistributionTitle">
             <div class="panel-heading compact">
                 <div>
-                    <span class="section-kicker">Geographie</span>
-                    <h3 id="geoDistributionTitle">R&eacute;partition g&eacute;ographique des occurrences</h3>
+                    <span class="section-kicker">Geography</span>
+                    <h3 id="geoDistributionTitle">Geographic distribution of occurrences</h3>
                 </div>
             </div>
 
@@ -122,14 +115,14 @@
                 <div id="geoMap" class="geo-map" aria-live="polite">
                     <div class="geo-route" aria-hidden="true"></div>
                 </div>
-                <div class="geo-legend" aria-label="Legende de la repartition geographique">
+                <div class="geo-legend" aria-label="Geographic distribution legend">
                     <div class="geo-legend-item">
                         <span class="geo-legend-dot geo-legend-dot-occurrences"></span>
-                        Occurrences enregistr&eacute;es
+                        Recorded occurrences
                     </div>
                     <div class="geo-legend-item">
                         <span class="geo-legend-dot geo-legend-dot-hotspots"></span>
-                        Hotspots biodiversit&eacute;
+                        Biodiversity hotspots
                     </div>
                 </div>
             </div>
@@ -138,10 +131,10 @@
         <section class="panel dash-panel">
             <div class="panel-heading compact">
                 <div>
-                    <span class="section-kicker">Derniers resultats</span>
-                    <h3>5 derniers enregistrements</h3>
+                    <span class="section-kicker">Latest results</span>
+                    <h3>Last 5 records</h3>
                 </div>
-                <div id="dashMessage" class="message-pill neutral">Chargement...</div>
+                <div id="dashMessage" class="message-pill neutral">Loading...</div>
             </div>
 
             <div class="table-card dash-table-card">
@@ -149,14 +142,14 @@
                     <thead>
                         <tr>
                             <th>Source</th>
-                            <th>Pays</th>
-                            <th>Espece</th>
+                            <th>Country</th>
+                            <th>Species</th>
                             <th>Date</th>
                         </tr>
                     </thead>
                     <tbody id="lastRowsBody">
                         <tr>
-                            <td colspan="4" class="empty-state">Aucune recherche sauvegardee.</td>
+                            <td colspan="4" class="empty-state">No saved search.</td>
                         </tr>
                     </tbody>
                 </table>

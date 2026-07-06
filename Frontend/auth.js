@@ -85,16 +85,16 @@ function logout() {
 }
 
 function renderAuthBadge() {
-    const cards = document.querySelectorAll(".api-card");
-    if (!cards.length) return;
+    const sidebars = document.querySelectorAll(".sidebar");
+    if (!sidebars.length) return;
     const user = getAuthUser();
     const displayName = user && user.display_name ? user.display_name : "";
     const fallbackName = user && (user.first_name || user.last_name)
         ? `${user.first_name || ""} ${user.last_name || ""}`.trim()
         : "";
-    const label = displayName || fallbackName || "Utilisateur connecte";
-    cards.forEach((card) => {
-        const existing = card.parentElement && card.parentElement.querySelector(".auth-card");
+    const label = displayName || fallbackName || "Signed-in user";
+    sidebars.forEach((sidebar) => {
+        const existing = sidebar.querySelector(".auth-card");
         if (existing) existing.remove();
 
         const authCard = document.createElement("div");
@@ -104,13 +104,13 @@ function renderAuthBadge() {
                 <span class="status-dot"></span>
                 <div>
                     <strong>${label}</strong>
-                    <p>Espace personnel</p>
+                    <p>Personal workspace</p>
                 </div>
             </div>
             <button type="button" class="auth-logout">Logout</button>
         `;
         const button = authCard.querySelector(".auth-logout");
         button.addEventListener("click", logout);
-        card.insertAdjacentElement("afterend", authCard);
+        sidebar.appendChild(authCard);
     });
 }
