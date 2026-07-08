@@ -2,7 +2,7 @@ console.log("exports.js loaded");
 
 requireAuth();
 
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = window.API_URL;
 const HISTORY_KEY = getAuthStorageKey("biodiversity:search_history_v1");
 const DEFAULT_RESULT_LIMIT = "300";
 const DEFAULT_MAX_EXPORT_PAGES = "20";

@@ -81,6 +81,22 @@ Notes :
 - Diagnostic Silene sans secrets : ouvrir `GET /silene-expert/status`.
 - Ne jamais committer le fichier `.env`.
 
+## Configuration frontend
+
+Le frontend utilise `Frontend/config.js` comme configuration centralisee.
+
+- En developpement local (`localhost`, `127.0.0.1`, ouverture en `file://`), les appels API utilisent automatiquement `http://127.0.0.1:8000`.
+- En production, par exemple sur le serveur Debian derriere Nginx, les appels API utilisent automatiquement `/api`.
+- Les fichiers applicatifs JS et CSS locaux sont charges avec un parametre de cache busting automatique par `Frontend/asset-loader.js`.
+
+Les fichiers `search.js`, `dashboard.js`, `login.js`, `exports.js` et les futurs scripts frontend doivent utiliser :
+
+```javascript
+const API_URL = window.API_URL;
+```
+
+Il ne faut pas modifier ces fichiers manuellement sur la VM apres un deploiement.
+
 ## Lancer le backend
 
 Depuis la racine du repo :
@@ -260,6 +276,29 @@ Lancer les tests principaux :
 ```powershell
 .\venv\Scripts\python.exe -m unittest Backend.test_inaturalist_service_unittest Backend.test_csv_export_routes_unittest Backend.test_combined_export_unittest Backend.test_silene_expert_service_unittest Backend.test_iucn_service_unittest
 ```
+
+## Deploiement
+
+Le depot doit rester identique entre le poste local et le serveur. Aucune modification locale du frontend ne doit etre faite sur la VM apres un `git pull`.
+
+Prerequis cote Nginx :
+
+- Servir le dossier `Frontend/` comme fichiers statiques.
+- Proxyfier `/api` vers le backend FastAPI lance par le service `bioexplorer`.
+
+Procedure de mise a jour :
+
+```bash
+git pull origin main
+systemctl restart bioexplorer
+systemctl reload nginx
+```
+
+Notes :
+
+- `systemctl restart bioexplorer` est necessaire si le backend Python, la configuration du service ou les dependances ont change.
+- `systemctl reload nginx` est necessaire si la configuration Nginx a change.
+- Pour une modification uniquement frontend, le `git pull origin main` suffit normalement : le cache busting force le navigateur a recuperer les nouveaux fichiers JS/CSS.
 
 ## Remarques
 
