@@ -20,6 +20,9 @@ const downloadProgress = document.getElementById("downloadProgress");
 const downloadProgressText = document.getElementById("downloadProgressText");
 const downloadProgressValue = document.getElementById("downloadProgressValue");
 const downloadProgressBar = document.getElementById("downloadProgressBar");
+const citationBox = document.getElementById("citationBox");
+const copyCitationBtn = document.getElementById("copyCitationBtn");
+const citationFeedback = document.getElementById("citationFeedback");
 
 const sourceSelect = document.getElementById("sourceSelect");
 const sourceCards = document.querySelectorAll(".source-card");
@@ -32,9 +35,16 @@ const dateFromInput = document.getElementById("dateFrom");
 const dateToInput = document.getElementById("dateTo");
 const qualityGradeInput = document.getElementById("qualityGrade");
 const sourceHint = document.getElementById("sourceHint");
+const SOURCE_LABELS = {
+    gbif: "GBIF",
+    silene_expert: "Silene Expert",
+    inaturalist: "iNaturalist",
+    steli: "STELI",
+};
 let activeSource = "gbif";
 let searchRunId = 0;
 let searchAbortController = null;
+let currentCitationText = "";
 
 function normalizeSource(value) {
     const source = String(value || "").trim();
@@ -135,10 +145,76 @@ function getPreviewRows(data, source) {
     return preview.length ? preview : rows.slice(0, 10);
 }
 
+function formatCitationDate(date) {
+    const safeDate = date instanceof Date && !Number.isNaN(date.getTime()) ? date : new Date();
+    const pad = (value) => String(value).padStart(2, "0");
+    const day = pad(safeDate.getDate());
+    const month = pad(safeDate.getMonth() + 1);
+    const year = safeDate.getFullYear();
+    const hours = pad(safeDate.getHours());
+    const minutes = pad(safeDate.getMinutes());
+    return `${day}/${month}/${year} à ${hours}:${minutes}`;
+}
+
+function hasIucnEnrichment(data) {
+    return (Array.isArray(data) ? data : []).some((row) => row && (
+        Object.prototype.hasOwnProperty.call(row, "iucn_status")
+        || Object.prototype.hasOwnProperty.call(row, "iucn_lookup_status")
+        || Object.prototype.hasOwnProperty.call(row, "iucn_assessment_id")
+        || Object.prototype.hasOwnProperty.call(row, "redListCategory")
+        || Object.prototype.hasOwnProperty.call(row, "status")
+    ));
+}
+
+function buildCitationSources(source, data) {
+    const normalizedSource = normalizeSource(source);
+    const sources = new Set();
+
+    if (normalizedSource === "both") {
+        Object.values(SOURCE_LABELS).forEach((label) => sources.add(label));
+    } else {
+        sources.add(SOURCE_LABELS[normalizedSource] || "GBIF");
+    }
+
+    (Array.isArray(data) ? data : []).forEach((row) => {
+        const sourceName = row && row.source_bdd ? String(row.source_bdd).trim() : "";
+        if (sourceName && sourceName !== "Not provided") sources.add(sourceName);
+    });
+
+    if (hasIucnEnrichment(data)) sources.add("IUCN");
+
+    return Array.from(sources);
+}
+
+function hideCitationBox() {
+    currentCitationText = "";
+    if (citationBox) citationBox.hidden = true;
+    if (citationFeedback) citationFeedback.textContent = "";
+}
+
+function showCitationBox(source, data, launchedAt) {
+    if (!citationBox || !Array.isArray(data) || data.length === 0) {
+        hideCitationBox();
+        return;
+    }
+
+    const citationDate = formatCitationDate(launchedAt);
+    const sources = buildCitationSources(source, data).join(", ");
+    currentCitationText = [
+        "Données obtenues via Biodata Explorer.",
+        `Sources : ${sources}.`,
+        `Recherche effectuée le ${citationDate}.`,
+    ].join("\n");
+
+    citationBox.hidden = false;
+    if (citationFeedback) citationFeedback.textContent = "";
+}
+
 function renderResults(data, source) {
     resultsBody.innerHTML = "";
 
     if (!Array.isArray(data) || data.length === 0) {
+        hideCitationBox();
         countText.textContent = "0 result found.";
         resultsBody.innerHTML = `
             <tr>
@@ -180,6 +256,7 @@ function renderResults(data, source) {
 }
 
 function renderSearchInProgress(source) {
+    hideCitationBox();
     const labels = {
         gbif: "GBIF",
         silene_expert: "Silene Expert",
@@ -199,9 +276,10 @@ function renderSearchInProgress(source) {
 
 function saveLastSearch(payload) {
     try {
+        const savedAt = payload.savedAt instanceof Date ? payload.savedAt.toISOString() : new Date().toISOString();
         const entry = {
             id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-            savedAt: new Date().toISOString(),
+            savedAt,
             params: payload.params,
             data: payload.data,
         };
@@ -244,6 +322,7 @@ function restoreLastSearch() {
         }
 
         renderResults(saved.data, saved.params && saved.params.source);
+        showCitationBox(saved.params && saved.params.source, saved.data, saved.savedAt ? new Date(saved.savedAt) : new Date());
         setMessage("Results restored after reload.", "neutral");
     } catch {
         // ignore parse errors
@@ -410,6 +489,7 @@ function syncSourceCards() {
 async function runSearch() {
     const { source, family, species, genus, country, dateFrom, dateTo, qualityGrade, resultLimit, maxPages, params } =
         getQueryParams();
+    const launchedAt = new Date();
     const currentRunId = searchRunId + 1;
     searchRunId = currentRunId;
 
@@ -468,9 +548,11 @@ async function runSearch() {
         if (currentRunId !== searchRunId) return;
 
         renderResults(data, source);
+        showCitationBox(source, data, launchedAt);
         saveLastSearch({
             params: { source, family, species, genus, country, dateFrom, dateTo, qualityGrade, resultLimit, maxPages },
             data,
+            savedAt: launchedAt,
         });
 
         setMessage("Search completed.", "success");
@@ -521,6 +603,7 @@ resetBtn.addEventListener("click", function () {
 
     setMessage("Ready to search.", "neutral");
     countText.textContent = "No search started.";
+    hideCitationBox();
 
     try {
         localStorage.removeItem(STORAGE_KEY);
@@ -535,6 +618,35 @@ resetBtn.addEventListener("click", function () {
         </tr>
     `;
 });
+
+if (copyCitationBtn) {
+    copyCitationBtn.addEventListener("click", async () => {
+        if (!currentCitationText) return;
+
+        copyCitationBtn.disabled = true;
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(currentCitationText);
+            } else {
+                const textarea = document.createElement("textarea");
+                textarea.value = currentCitationText;
+                textarea.setAttribute("readonly", "");
+                textarea.style.position = "fixed";
+                textarea.style.left = "-9999px";
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand("copy");
+                textarea.remove();
+            }
+            if (citationFeedback) citationFeedback.textContent = "✓ Citation copiée dans le presse-papiers.";
+        } catch (error) {
+            console.error(error);
+            if (citationFeedback) citationFeedback.textContent = "Impossible de copier la citation.";
+        } finally {
+            copyCitationBtn.disabled = false;
+        }
+    });
+}
 
 exportBtn.addEventListener("click", function () {
     const { source, dateFrom, dateTo, maxPages, params } = getQueryParams();
