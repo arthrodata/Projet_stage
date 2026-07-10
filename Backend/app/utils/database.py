@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sqlite3
 from pathlib import Path
 from contextlib import contextmanager
@@ -8,6 +9,7 @@ from typing import Iterator
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 DB_PATH = DATA_DIR / "app.db"
+DEFAULT_ADMIN_EMAIL = "oussamaelbakkouri128@gmail.com"
 
 
 def get_connection() -> sqlite3.Connection:
@@ -38,6 +40,12 @@ def init_db() -> None:
                 first_name TEXT NOT NULL DEFAULT '',
                 last_name TEXT NOT NULL DEFAULT '',
                 password_hash TEXT NOT NULL,
+                is_validated INTEGER NOT NULL DEFAULT 0,
+                is_admin INTEGER NOT NULL DEFAULT 0,
+                validated_at TEXT,
+                validated_by INTEGER,
+                last_login_at TEXT,
+                last_activity_at TEXT,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
 
@@ -64,3 +72,28 @@ def init_db() -> None:
             conn.execute("ALTER TABLE users ADD COLUMN first_name TEXT NOT NULL DEFAULT ''")
         if "last_name" not in columns:
             conn.execute("ALTER TABLE users ADD COLUMN last_name TEXT NOT NULL DEFAULT ''")
+        if "is_validated" not in columns:
+            conn.execute("ALTER TABLE users ADD COLUMN is_validated INTEGER NOT NULL DEFAULT 0")
+        if "is_admin" not in columns:
+            conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")
+        if "validated_at" not in columns:
+            conn.execute("ALTER TABLE users ADD COLUMN validated_at TEXT")
+        if "validated_by" not in columns:
+            conn.execute("ALTER TABLE users ADD COLUMN validated_by INTEGER")
+        if "last_login_at" not in columns:
+            conn.execute("ALTER TABLE users ADD COLUMN last_login_at TEXT")
+        if "last_activity_at" not in columns:
+            conn.execute("ALTER TABLE users ADD COLUMN last_activity_at TEXT")
+
+        admin_email = os.getenv("ADMIN_EMAIL", DEFAULT_ADMIN_EMAIL).strip().lower()
+        if admin_email:
+            conn.execute(
+                """
+                UPDATE users
+                SET is_admin = 1,
+                    is_validated = 1,
+                    validated_at = COALESCE(validated_at, CURRENT_TIMESTAMP)
+                WHERE lower(email) = lower(?)
+                """,
+                (admin_email,),
+            )

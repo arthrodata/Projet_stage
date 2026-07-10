@@ -15,6 +15,7 @@ from Backend.app.utils.database import iter_connection
 
 
 TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7
+DEFAULT_ADMIN_EMAIL = "oussamaelbakkouri128@gmail.com"
 
 
 def _secret_key() -> bytes:
@@ -22,6 +23,15 @@ def _secret_key() -> bytes:
     if configured:
         return configured.encode("utf-8")
     return b"dev-secret-change-me"
+
+
+def _admin_email() -> str:
+    return os.getenv("ADMIN_EMAIL", DEFAULT_ADMIN_EMAIL).strip().lower()
+
+
+def is_initial_admin_email(email: str) -> bool:
+    admin_email = _admin_email()
+    return bool(admin_email) and email.strip().lower() == admin_email
 
 
 def _b64url_encode(raw: bytes) -> str:
@@ -78,7 +88,11 @@ def decode_token(token: str) -> dict[str, Any] | None:
     return payload if isinstance(payload, dict) else None
 
 
-USER_COLUMNS = "id, email, first_name, last_name, password_hash, created_at"
+USER_COLUMNS = (
+    "id, email, first_name, last_name, password_hash, "
+    "is_validated, is_admin, validated_at, validated_by, "
+    "last_login_at, last_activity_at, created_at"
+)
 
 
 def get_user_by_email(email: str) -> dict[str, Any] | None:
@@ -110,11 +124,28 @@ def create_user(email: str, password: str, first_name: str = "", last_name: str 
     if len(password or "") < 6:
         raise HTTPException(status_code=400, detail="Mot de passe trop court.")
 
+    is_admin = 1 if is_initial_admin_email(clean_email) else 0
+    is_validated = 1 if is_admin else 0
+
     try:
         with iter_connection() as conn:
             cur = conn.execute(
-                "INSERT INTO users (email, first_name, last_name, password_hash) VALUES (?, ?, ?, ?)",
-                (clean_email, clean_first_name, clean_last_name, hash_password(password)),
+                """
+                INSERT INTO users (
+                    email, first_name, last_name, password_hash,
+                    is_validated, is_admin, validated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, CASE WHEN ? = 1 THEN CURRENT_TIMESTAMP ELSE NULL END)
+                """,
+                (
+                    clean_email,
+                    clean_first_name,
+                    clean_last_name,
+                    hash_password(password),
+                    is_validated,
+                    is_admin,
+                    is_validated,
+                ),
             )
             user_id = int(cur.lastrowid)
     except Exception as exc:
@@ -135,6 +166,36 @@ def authenticate_user(email: str, password: str) -> dict[str, Any] | None:
     return user
 
 
+def mark_user_login(user_id: int) -> dict[str, Any]:
+    with iter_connection() as conn:
+        conn.execute(
+            """
+            UPDATE users
+            SET last_login_at = CURRENT_TIMESTAMP,
+                last_activity_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (int(user_id),),
+        )
+    user = get_user_by_id(int(user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur introuvable.")
+    return user
+
+
+def mark_user_activity(user_id: int) -> None:
+    with iter_connection() as conn:
+        conn.execute(
+            "UPDATE users SET last_activity_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (int(user_id),),
+        )
+
+
+def ensure_user_can_login(user: dict[str, Any]) -> None:
+    if not int(user.get("is_validated") or 0):
+        raise HTTPException(status_code=403, detail="Votre compte est en attente de validation par l'administrateur.")
+
+
 def optional_current_user(authorization: str | None = Header(default=None)) -> dict[str, Any] | None:
     if not authorization:
         return None
@@ -144,10 +205,21 @@ def optional_current_user(authorization: str | None = Header(default=None)) -> d
     payload = decode_token(authorization[len(prefix):].strip())
     if not payload:
         return None
-    return get_user_by_id(int(payload["sub"]))
+    user = get_user_by_id(int(payload["sub"]))
+    if not user:
+        return None
+    ensure_user_can_login(user)
+    mark_user_activity(int(user["id"]))
+    return user
 
 
 def require_current_user(user: dict[str, Any] | None = Depends(optional_current_user)) -> dict[str, Any]:
     if not user:
         raise HTTPException(status_code=401, detail="Authentification requise.")
+    return user
+
+
+def require_admin_user(user: dict[str, Any] = Depends(require_current_user)) -> dict[str, Any]:
+    if not int(user.get("is_admin") or 0):
+        raise HTTPException(status_code=403, detail="Acces administrateur requis.")
     return user

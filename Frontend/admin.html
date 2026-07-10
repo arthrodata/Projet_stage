@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BioData Explorer - Admin</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="search.css">
+</head>
+
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-mark">B</div>
+            <div>
+                <h1>BioData Explorer</h1>
+                <p>Biological occurrences</p>
+            </div>
+        </div>
+
+        <nav class="side-nav" aria-label="Navigation principale">
+            <a class="nav-item" href="dashboard.html">
+                <span class="nav-icon">DB</span>
+                Dashboard
+            </a>
+            <a class="nav-item" href="search.html#searchPanel">
+                <span class="nav-icon">RE</span>
+                Search
+            </a>
+            <a class="nav-item" href="exports.html">
+                <span class="nav-icon">CSV</span>
+                Exports CSV
+            </a>
+            <a class="nav-item active" href="admin.html" data-admin-link="true">
+                <span class="nav-icon">AD</span>
+                Admin
+            </a>
+        </nav>
+    </aside>
+
+    <main class="main-area">
+        <header class="topbar">
+            <div class="topbar-title">
+                <span class="section-kicker">Administration</span>
+                <h2>Validation des utilisateurs</h2>
+            </div>
+        </header>
+
+        <section class="panel">
+            <div class="panel-heading compact">
+                <div>
+                    <span class="section-kicker">Comptes</span>
+                    <h3>Utilisateurs inscrits</h3>
+                </div>
+                <div id="adminMessage" class="message-pill neutral">Chargement...</div>
+            </div>
+
+            <div class="table-card">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Nom</th>
+                            <th>Prenom</th>
+                            <th>Email</th>
+                            <th>Statut</th>
+                            <th>Role</th>
+                            <th>Creation</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersBody">
+                        <tr>
+                            <td colspan="7" class="empty-state">Chargement des utilisateurs.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script src="config.js"></script>
+<script data-src="auth.js"></script>
+<script data-src="admin.js"></script>
+<script src="asset-loader.js"></script>
+</body>
+</html>

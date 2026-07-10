@@ -58,6 +58,9 @@ Le backend charge automatiquement le fichier `.env` place a la racine du projet.
 Exemple :
 
 ```env
+APP_SECRET_KEY=change-this-long-random-secret
+ADMIN_EMAIL=oussamaelbakkouri128@gmail.com
+
 IUCN_TOKEN=
 
 # Option 1 : token/cookie Silene Expert manuel
@@ -74,12 +77,35 @@ SILENE_TRUST_ENV=true
 
 Notes :
 
+- `APP_SECRET_KEY` signe les sessions utilisateur. En production, utiliser une valeur longue et secrete.
+- `ADMIN_EMAIL` definit le compte administrateur initial. Pendant les tests, l'adresse configuree est `oussamaelbakkouri128@gmail.com`; elle pourra etre remplacee par l'adresse de Noelline ensuite.
 - `IUCN_TOKEN` est necessaire pour remplir la colonne `status` avec le statut Red List.
 - `SILENE_EXPERT_TOKEN` reste supporte.
 - Si `SILENE_EXPERT_LOGIN` et `SILENE_EXPERT_PASSWORD` sont renseignes, le backend peut obtenir et rafraichir le token Silene automatiquement.
 - Sur un serveur universitaire qui passe par un proxy, ajouter `SILENE_TRUST_ENV=true` pour autoriser Silene/TaxHub a utiliser `HTTP_PROXY`, `HTTPS_PROXY` et `REQUESTS_CA_BUNDLE`.
 - Diagnostic Silene sans secrets : ouvrir `GET /silene-expert/status`.
 - Ne jamais committer le fichier `.env`.
+
+## Comptes utilisateurs et validation admin
+
+Les comptes sont stockes dans la base SQLite locale `Backend/data/app.db`.
+
+Workflow :
+
+- Un utilisateur cree un compte avec son nom, prenom, email et mot de passe.
+- Si son email ne correspond pas a `ADMIN_EMAIL`, le compte est cree avec le statut `non valide`.
+- Un compte `non valide` ne peut pas se connecter.
+- L'administrateur ouvre `Frontend/admin.html`, puis valide ou invalide les comptes.
+- L'administrateur peut aussi supprimer les comptes non administrateurs.
+- La page admin affiche aussi la derniere connexion (`last_login_at`) et la derniere activite (`last_activity_at`) de chaque utilisateur.
+
+Le compte dont l'email correspond a `ADMIN_EMAIL` devient automatiquement administrateur et valide. Pour changer l'administrateur initial, modifier dans `.env` :
+
+```env
+ADMIN_EMAIL=noelline@example.com
+```
+
+Puis redemarrer le backend.
 
 ## Configuration frontend
 

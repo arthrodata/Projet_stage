@@ -3,7 +3,14 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from Backend.app.utils.auth import authenticate_user, create_token, create_user, require_current_user
+from Backend.app.utils.auth import (
+    authenticate_user,
+    create_token,
+    create_user,
+    ensure_user_can_login,
+    mark_user_login,
+    require_current_user,
+)
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -25,6 +32,10 @@ def _public_user(user: dict) -> dict:
         "display_name": " ".join(
             part for part in [user.get("first_name") or "", user.get("last_name") or ""] if part
         ).strip(),
+        "is_validated": bool(user.get("is_validated")),
+        "is_admin": bool(user.get("is_admin")),
+        "last_login_at": user.get("last_login_at"),
+        "last_activity_at": user.get("last_activity_at"),
         "created_at": user["created_at"],
     }
 
@@ -32,6 +43,12 @@ def _public_user(user: dict) -> dict:
 @router.post("/register")
 def register(payload: AuthPayload):
     user = create_user(payload.email, payload.password, payload.first_name or "", payload.last_name or "")
+    if not user.get("is_validated"):
+        return {
+            "status": "pending_validation",
+            "message": "Compte cree. Il doit etre valide par l'administrateur avant connexion.",
+            "user": _public_user(user),
+        }
     return {"access_token": create_token(user), "token_type": "bearer", "user": _public_user(user)}
 
 
@@ -40,6 +57,8 @@ def login(payload: AuthPayload):
     user = authenticate_user(payload.email, payload.password)
     if not user:
         raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect.")
+    ensure_user_can_login(user)
+    user = mark_user_login(int(user["id"]))
     return {"access_token": create_token(user), "token_type": "bearer", "user": _public_user(user)}
 
 

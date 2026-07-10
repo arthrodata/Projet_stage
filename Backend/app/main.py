@@ -8,6 +8,7 @@ from Backend.app.routes.combined import router as combined_router
 from Backend.app.routes.steli import router as steli_router
 from Backend.app.routes.auth import router as auth_router
 from Backend.app.routes.history import router as history_router
+from Backend.app.routes.admin import router as admin_router
 from Backend.app.utils.database import init_db
 from pathlib import Path
 import os
@@ -60,3 +61,4 @@ app.include_router(combined_router)
 app.include_router(steli_router)
 app.include_router(auth_router)
 app.include_router(history_router)
+app.include_router(admin_router)

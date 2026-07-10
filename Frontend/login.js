@@ -77,6 +77,12 @@ async function submitSignup() {
     if (!response.ok) {
         throw new Error(payload.detail || "Authentication error.");
     }
+    if (payload.status === "pending_validation") {
+        signupForm.reset();
+        setAuthMode("login");
+        setAuthMessage(payload.message || "Account created. Waiting for administrator validation.", "success");
+        return;
+    }
     setAuthSession(payload);
     window.location.href = nextUrl();
 }

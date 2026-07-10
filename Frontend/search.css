@@ -472,7 +472,8 @@ select {
 
 .btn-primary,
 .btn-muted,
-.btn-export {
+.btn-export,
+.btn-danger {
     min-height: 50px;
     border: 0;
     border-radius: 14px;
@@ -499,9 +500,16 @@ select {
     background: #d1fae5;
 }
 
+.btn-danger {
+    flex: 0 0 110px;
+    color: #7f1d1d;
+    background: #fee2e2;
+}
+
 .btn-primary:disabled,
 .btn-muted:disabled,
-.btn-export:disabled {
+.btn-export:disabled,
+.btn-danger:disabled {
     cursor: wait;
     opacity: 0.62;
 }
@@ -604,6 +612,52 @@ select {
     font-size: 12px;
     font-weight: 800;
     white-space: nowrap;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.status-badge-valid {
+    color: #064e3b;
+    background: #d1fae5;
+}
+
+.status-badge-pending {
+    color: #92400e;
+    background: #fef3c7;
+}
+
+.admin-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.admin-actions .btn-primary,
+.admin-actions .btn-muted,
+.admin-actions .btn-danger {
+    min-height: 38px;
+    padding: 0 12px;
+    flex: 0 0 auto;
+    border-radius: 10px;
+    box-shadow: none;
+}
+
+.muted-text {
+    color: var(--muted);
+    font-weight: 800;
+}
+
+.admin-table {
+    min-width: 1040px;
 }
 
 table {

@@ -70,6 +70,15 @@ async function authFetch(url, options) {
         const next = encodeURIComponent(`${window.location.pathname}${window.location.search}${window.location.hash}`);
         window.location.href = `login.html?next=${next}`;
     }
+    if (response.status === 403) {
+        const clone = response.clone();
+        const payload = await clone.json().catch(() => ({}));
+        const detail = String(payload.detail || "");
+        if (detail.includes("attente de validation")) {
+            clearAuthSession();
+            window.location.href = "login.html";
+        }
+    }
     return response;
 }
 
@@ -82,6 +91,26 @@ function requireAuth() {
 function logout() {
     clearAuthSession();
     window.location.href = "login.html";
+}
+
+function renderAdminNavLink() {
+    const user = getAuthUser();
+    const navs = document.querySelectorAll(".side-nav");
+    navs.forEach((nav) => {
+        const existing = nav.querySelector('[data-admin-link="true"]');
+        if (existing) existing.remove();
+        if (!user || !user.is_admin) return;
+
+        const link = document.createElement("a");
+        link.className = `nav-item ${window.location.pathname.endsWith("admin.html") ? "active" : ""}`;
+        link.href = "admin.html";
+        link.dataset.adminLink = "true";
+        link.innerHTML = `
+            <span class="nav-icon">AD</span>
+            Admin
+        `;
+        nav.appendChild(link);
+    });
 }
 
 function renderAuthBadge() {
@@ -113,4 +142,5 @@ function renderAuthBadge() {
         button.addEventListener("click", logout);
         sidebar.appendChild(authCard);
     });
+    renderAdminNavLink();
 }
