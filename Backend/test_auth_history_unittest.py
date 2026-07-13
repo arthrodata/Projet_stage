@@ -16,6 +16,7 @@ from Backend.app.utils.auth import (
     mark_user_login,
 )
 from Backend.app.utils.history import list_search_history, remember_search
+from Backend.app.routes.admin import clear_search_history, delete_unvalidated_users, list_users
 
 
 class TestAuthHistory(unittest.TestCase):
@@ -76,6 +77,40 @@ class TestAuthHistory(unittest.TestCase):
                 active_user = authenticate_user("admin@example.com", "secret123")
                 self.assertIsNotNone(active_user["last_activity_at"])
                 self.assertGreaterEqual(active_user["last_activity_at"], first_activity)
+
+    def test_admin_cleanup_history_and_unvalidated_users(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "app.db"
+            with (
+                patch.object(database, "DB_PATH", db_path),
+                patch.object(database, "DATA_DIR", db_path.parent),
+                patch.dict("os.environ", {"ADMIN_EMAIL": "admin@example.com"}),
+            ):
+                database.init_db()
+
+                admin = create_user("admin@example.com", "secret123", "Grace", "Hopper")
+                pending = create_user("pending@example.com", "secret123", "Pending", "User")
+                create_user("pending2@example.com", "secret123", "Second", "User")
+                remember_search(
+                    admin,
+                    source="gbif",
+                    params={"source": "gbif", "species": "Aus bus"},
+                    rows=[{"source_bdd": "GBIF", "species": "Aus bus"}],
+                )
+
+                self.assertEqual(len(list_search_history(admin)), 1)
+                history_result = clear_search_history(admin)
+                self.assertEqual(history_result["deleted"], 1)
+                self.assertEqual(len(list_search_history(admin)), 0)
+
+                users_before = list_users(admin)["users"]
+                self.assertTrue(any(user["id"] == pending["id"] for user in users_before))
+
+                cleanup_result = delete_unvalidated_users(admin)
+                self.assertEqual(cleanup_result["deleted"], 2)
+                users_after = list_users(admin)["users"]
+                self.assertFalse(any(not user["is_validated"] for user in users_after))
+                self.assertTrue(any(user["email"] == "admin@example.com" for user in users_after))
 
 
 if __name__ == "__main__":

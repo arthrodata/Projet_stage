@@ -2,6 +2,8 @@ const API_URL = window.API_URL;
 
 const usersBody = document.getElementById("usersBody");
 const adminMessage = document.getElementById("adminMessage");
+const clearHistoryBtn = document.getElementById("clearHistoryBtn");
+const deleteUnvalidatedBtn = document.getElementById("deleteUnvalidatedBtn");
 
 function setAdminMessage(text, type) {
     adminMessage.textContent = text;
@@ -107,11 +109,47 @@ async function updateUser(action, userId) {
     await loadUsers();
 }
 
+async function runCleanup(kind) {
+    const isHistory = kind === "history";
+    const confirmed = window.confirm(
+        isHistory
+            ? "Supprimer tout l'historique des recherches pour tous les utilisateurs ?"
+            : "Supprimer tous les comptes non valides ?"
+    );
+    if (!confirmed) return;
+
+    setAdminMessage("Nettoyage en cours...", "neutral");
+    const url = isHistory ? `${API_URL}/admin/history` : `${API_URL}/admin/users/unvalidated`;
+    const response = await authFetch(url, { method: "DELETE" });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(payload.detail || "Nettoyage impossible.");
+    }
+    setAdminMessage(`${payload.deleted || 0} element(s) supprime(s).`, "success");
+    if (!isHistory) await loadUsers();
+}
+
 usersBody.addEventListener("click", async (event) => {
     const button = event.target.closest(".admin-action");
     if (!button) return;
     try {
         await updateUser(button.dataset.action, button.dataset.userId);
+    } catch (error) {
+        setAdminMessage(error.message, "error");
+    }
+});
+
+clearHistoryBtn.addEventListener("click", async () => {
+    try {
+        await runCleanup("history");
+    } catch (error) {
+        setAdminMessage(error.message, "error");
+    }
+});
+
+deleteUnvalidatedBtn.addEventListener("click", async () => {
+    try {
+        await runCleanup("unvalidated");
     } catch (error) {
         setAdminMessage(error.message, "error");
     }

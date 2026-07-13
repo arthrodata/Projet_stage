@@ -660,6 +660,22 @@ select {
     min-width: 1040px;
 }
 
+.admin-cleanup-panel {
+    margin-top: 22px;
+}
+
+.admin-cleanup-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.admin-cleanup-actions .btn-danger {
+    min-width: 220px;
+    padding: 0 16px;
+    flex: 0 0 auto;
+}
+
 table {
     width: 100%;
     min-width: 1220px;

@@ -57,6 +57,28 @@ def list_users(admin: dict = Depends(require_admin_user)):
     return {"users": [_public_admin_user(dict(row)) for row in rows]}
 
 
+@router.delete("/history")
+def clear_search_history(admin: dict = Depends(require_admin_user)):
+    with iter_connection() as conn:
+        cur = conn.execute("DELETE FROM search_history")
+    return {"deleted": int(cur.rowcount if cur.rowcount is not None else 0)}
+
+
+@router.delete("/users/unvalidated")
+def delete_unvalidated_users(admin: dict = Depends(require_admin_user)):
+    with iter_connection() as conn:
+        cur = conn.execute(
+            """
+            DELETE FROM users
+            WHERE is_validated = 0
+              AND is_admin = 0
+              AND id != ?
+            """,
+            (int(admin["id"]),),
+        )
+    return {"deleted": int(cur.rowcount if cur.rowcount is not None else 0)}
+
+
 @router.patch("/users/{user_id}/validate")
 def validate_user(user_id: int, admin: dict = Depends(require_admin_user)):
     with iter_connection() as conn:
