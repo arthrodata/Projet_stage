@@ -4,6 +4,12 @@ const usersBody = document.getElementById("usersBody");
 const adminMessage = document.getElementById("adminMessage");
 const clearHistoryBtn = document.getElementById("clearHistoryBtn");
 const deleteUnvalidatedBtn = document.getElementById("deleteUnvalidatedBtn");
+const passwordResetBox = document.getElementById("passwordResetBox");
+const passwordResetUser = document.getElementById("passwordResetUser");
+const passwordResetValue = document.getElementById("passwordResetValue");
+const copyPasswordBtn = document.getElementById("copyPasswordBtn");
+
+let lastTemporaryPassword = "";
 
 function setAdminMessage(text, type) {
     adminMessage.textContent = text;
@@ -54,6 +60,7 @@ function renderActions(user, currentUser) {
     return `
         <div class="admin-actions">
             ${validateButton}
+            <button type="button" class="btn-muted admin-action" data-action="password" data-user-id="${user.id}">Regenerer mdp</button>
             <button type="button" class="btn-danger admin-action" data-action="delete" data-user-id="${user.id}">Supprimer</button>
         </div>
     `;
@@ -99,12 +106,26 @@ async function updateUser(action, userId) {
         url = `${API_URL}/admin/users/${userId}`;
         options = { method: "DELETE" };
     }
+    if (action === "password") {
+        const confirmed = window.confirm("Regenerer un mot de passe temporaire pour cet utilisateur ?");
+        if (!confirmed) return;
+    }
 
     setAdminMessage("Mise a jour...", "neutral");
     const response = await authFetch(url, options);
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
         throw new Error(payload.detail || "Action impossible.");
+    }
+    if (action === "password") {
+        lastTemporaryPassword = payload.temporary_password || "";
+        passwordResetUser.textContent = payload.user
+            ? `${payload.user.first_name || ""} ${payload.user.last_name || ""} - ${payload.user.email}`.trim()
+            : "Utilisateur";
+        passwordResetValue.textContent = lastTemporaryPassword;
+        passwordResetBox.hidden = !lastTemporaryPassword;
+        setAdminMessage(payload.message || "Mot de passe regenere.", "success");
+        return;
     }
     await loadUsers();
 }
@@ -152,6 +173,16 @@ deleteUnvalidatedBtn.addEventListener("click", async () => {
         await runCleanup("unvalidated");
     } catch (error) {
         setAdminMessage(error.message, "error");
+    }
+});
+
+copyPasswordBtn.addEventListener("click", async () => {
+    if (!lastTemporaryPassword) return;
+    try {
+        await navigator.clipboard.writeText(lastTemporaryPassword);
+        setAdminMessage("Mot de passe copie.", "success");
+    } catch (error) {
+        setAdminMessage("Copie impossible. Selectionnez le mot de passe manuellement.", "error");
     }
 });
 

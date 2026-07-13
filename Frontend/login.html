@@ -43,6 +43,13 @@
                 <label for="loginPassword">Password</label>
                 <input id="loginPassword" type="password" autocomplete="current-password" required minlength="6">
             </div>
+            <div class="auth-form-help">
+                <button type="button" id="forgotPasswordBtn" class="auth-link-button">Mot de passe oublie ?</button>
+            </div>
+            <div id="forgotPasswordPanel" class="auth-info-box" hidden>
+                <strong>Mot de passe oublie</strong>
+                <p>Contactez un administrateur avec votre email. Il pourra regenerer un mot de passe temporaire depuis la page Admin.</p>
+            </div>
             <div class="button-row">
                 <button type="submit" id="loginBtn" class="btn-primary">Log in</button>
             </div>

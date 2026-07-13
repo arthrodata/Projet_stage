@@ -11,6 +11,8 @@ const signupPasswordInput = document.getElementById("signupPassword");
 const loginModeBtn = document.getElementById("loginModeBtn");
 const signupModeBtn = document.getElementById("signupModeBtn");
 const authMessage = document.getElementById("authMessage");
+const forgotPasswordBtn = document.getElementById("forgotPasswordBtn");
+const forgotPasswordPanel = document.getElementById("forgotPasswordPanel");
 
 function setAuthMessage(text, type) {
     authMessage.textContent = text;
@@ -26,6 +28,7 @@ function setAuthMode(mode) {
     const isSignup = mode === "register";
     loginForm.hidden = isSignup;
     signupForm.hidden = !isSignup;
+    forgotPasswordPanel.hidden = true;
     loginModeBtn.classList.toggle("active", !isSignup);
     signupModeBtn.classList.toggle("active", isSignup);
     setAuthMessage(isSignup ? "Create your account." : "Sign in with your email and password.", "neutral");
@@ -107,5 +110,11 @@ signupForm.addEventListener("submit", async (event) => {
 
 loginModeBtn.addEventListener("click", () => setAuthMode("login"));
 signupModeBtn.addEventListener("click", () => setAuthMode("register"));
+forgotPasswordBtn.addEventListener("click", () => {
+    forgotPasswordPanel.hidden = !forgotPasswordPanel.hidden;
+    if (!forgotPasswordPanel.hidden) {
+        setAuthMessage("Demandez un mot de passe temporaire a un administrateur.", "neutral");
+    }
+});
 
 setAuthMode("login");

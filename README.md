@@ -172,6 +172,7 @@ Workflow :
 - L'administrateur peut :
   - valider un compte
   - invalider un compte
+  - regenerer un mot de passe temporaire pour un compte non administrateur
   - supprimer un compte non administrateur
   - supprimer tous les comptes non valides
   - nettoyer tout l'historique des recherches
@@ -296,6 +297,7 @@ Admin :
 GET /admin/users
 PATCH /admin/users/{user_id}/validate
 PATCH /admin/users/{user_id}/invalidate
+PATCH /admin/users/{user_id}/password
 DELETE /admin/users/{user_id}
 DELETE /admin/users/unvalidated
 DELETE /admin/history

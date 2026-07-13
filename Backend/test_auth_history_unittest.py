@@ -16,7 +16,7 @@ from Backend.app.utils.auth import (
     mark_user_login,
 )
 from Backend.app.utils.history import list_search_history, remember_search
-from Backend.app.routes.admin import clear_search_history, delete_unvalidated_users, list_users
+from Backend.app.routes.admin import clear_search_history, delete_unvalidated_users, list_users, reset_user_password
 
 
 class TestAuthHistory(unittest.TestCase):
@@ -111,6 +111,27 @@ class TestAuthHistory(unittest.TestCase):
                 users_after = list_users(admin)["users"]
                 self.assertFalse(any(not user["is_validated"] for user in users_after))
                 self.assertTrue(any(user["email"] == "admin@example.com" for user in users_after))
+
+    def test_admin_can_reset_user_password(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "app.db"
+            with (
+                patch.object(database, "DB_PATH", db_path),
+                patch.object(database, "DATA_DIR", db_path.parent),
+                patch.dict("os.environ", {"ADMIN_EMAIL": "admin@example.com"}),
+            ):
+                database.init_db()
+
+                admin = create_user("admin@example.com", "secret123", "Grace", "Hopper")
+                user = create_user("user@example.com", "secret123", "Ada", "Lovelace")
+
+                result = reset_user_password(user["id"], admin)
+                temporary_password = result["temporary_password"]
+
+                self.assertEqual(len(temporary_password), 12)
+                self.assertIsNone(authenticate_user("user@example.com", "secret123"))
+                self.assertIsNotNone(authenticate_user("user@example.com", temporary_password))
+                self.assertEqual(result["user"]["email"], "user@example.com")
 
 
 if __name__ == "__main__":

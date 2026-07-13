@@ -240,6 +240,51 @@ select {
     gap: 14px;
 }
 
+.auth-form-help {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: -6px;
+}
+
+.auth-link-button {
+    padding: 0;
+    border: 0;
+    color: var(--blue-dark);
+    background: transparent;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.auth-link-button:hover {
+    text-decoration: underline;
+}
+
+.auth-info-box {
+    padding: 14px 16px;
+    border: 1px solid rgba(14, 165, 233, 0.28);
+    border-radius: 14px;
+    background: #f0f9ff;
+}
+
+.auth-info-box[hidden] {
+    display: none;
+}
+
+.auth-info-box strong {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--blue-dark);
+}
+
+.auth-info-box p {
+    margin: 0;
+    color: #344054;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.45;
+}
+
 .api-card p {
     margin: 3px 0 0;
     color: #aebeda;
@@ -654,6 +699,46 @@ select {
 .muted-text {
     color: var(--muted);
     font-weight: 800;
+}
+
+.password-reset-box {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 14px;
+    align-items: center;
+    margin: -4px 0 18px;
+    padding: 16px;
+    border: 1px solid rgba(14, 165, 233, 0.28);
+    border-radius: 16px;
+    background: #f0f9ff;
+}
+
+.password-reset-box[hidden] {
+    display: none;
+}
+
+.password-reset-box strong {
+    display: block;
+    margin-bottom: 8px;
+    overflow-wrap: anywhere;
+}
+
+.password-reset-box code {
+    display: inline-block;
+    max-width: 100%;
+    padding: 8px 10px;
+    overflow-wrap: anywhere;
+    border-radius: 10px;
+    color: #0f172a;
+    background: #fff;
+    font-size: 14px;
+    font-weight: 900;
+}
+
+.password-reset-box .btn-muted {
+    min-width: 96px;
+    padding: 0 14px;
+    flex: 0 0 auto;
 }
 
 .admin-table {

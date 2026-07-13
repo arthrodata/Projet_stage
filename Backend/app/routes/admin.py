@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import secrets
+import string
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from Backend.app.utils.auth import require_admin_user
+from Backend.app.utils.auth import hash_password, require_admin_user
 from Backend.app.utils.database import iter_connection
 
 
@@ -42,6 +44,11 @@ def _get_admin_user(user_id: int) -> dict[str, Any] | None:
             (int(user_id),),
         ).fetchone()
     return dict(row) if row else None
+
+
+def _generate_temporary_password(length: int = 12) -> str:
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
 @router.get("/users")
@@ -98,6 +105,36 @@ def validate_user(user_id: int, admin: dict = Depends(require_admin_user)):
     if not user:
         raise HTTPException(status_code=404, detail="Utilisateur introuvable.")
     return {"user": _public_admin_user(user)}
+
+
+@router.patch("/users/{user_id}/password")
+def reset_user_password(user_id: int, admin: dict = Depends(require_admin_user)):
+    if int(user_id) == int(admin["id"]):
+        raise HTTPException(status_code=400, detail="Impossible de regenerer votre propre mot de passe.")
+
+    temporary_password = _generate_temporary_password()
+    with iter_connection() as conn:
+        row = conn.execute(
+            "SELECT id, is_admin FROM users WHERE id = ?",
+            (int(user_id),),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Utilisateur introuvable.")
+        if int(row["is_admin"] or 0):
+            raise HTTPException(status_code=400, detail="Impossible de regenerer le mot de passe d'un administrateur.")
+        conn.execute(
+            "UPDATE users SET password_hash = ? WHERE id = ?",
+            (hash_password(temporary_password), int(user_id)),
+        )
+
+    user = _get_admin_user(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur introuvable.")
+    return {
+        "user": _public_admin_user(user),
+        "temporary_password": temporary_password,
+        "message": "Mot de passe temporaire regenere. Il est affiche une seule fois.",
+    }
 
 
 @router.patch("/users/{user_id}/invalidate")
