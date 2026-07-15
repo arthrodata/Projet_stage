@@ -39,6 +39,41 @@ function escapeHtml(value) {
     }[char]));
 }
 
+async function copyTextToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+    }
+
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.top = "0";
+    textarea.style.left = "-9999px";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+
+    let copied = false;
+    try {
+        copied = document.execCommand("copy");
+    } finally {
+        textarea.remove();
+    }
+
+    return copied;
+}
+
+function selectTemporaryPassword() {
+    if (!passwordResetValue || !lastTemporaryPassword) return;
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(passwordResetValue);
+    selection.removeAllRanges();
+    selection.addRange(range);
+}
+
 function renderStatus(user) {
     return user.is_validated
         ? '<span class="status-badge status-badge-valid">Validated</span>'
@@ -94,7 +129,7 @@ async function loadUsers() {
         throw new Error(payload.detail || "Administrator access failed.");
     }
     renderUsers(payload.users || []);
-    setAdminMessage(`${(payload.users || []).length} utilisateur(s)`, "success");
+    setAdminMessage(`${(payload.users || []).length} user(s)`, "success");
 }
 
 async function updateUser(action, userId) {
@@ -115,7 +150,7 @@ async function updateUser(action, userId) {
     const response = await authFetch(url, options);
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-        throw new Error(payload.detail || "Action impossible.");
+        throw new Error(payload.detail || "Action failed.");
     }
     if (action === "password") {
         lastTemporaryPassword = payload.temporary_password || "";
@@ -179,10 +214,12 @@ deleteUnvalidatedBtn.addEventListener("click", async () => {
 copyPasswordBtn.addEventListener("click", async () => {
     if (!lastTemporaryPassword) return;
     try {
-        await navigator.clipboard.writeText(lastTemporaryPassword);
+        const copied = await copyTextToClipboard(lastTemporaryPassword);
+        if (!copied) throw new Error("copy rejected");
         setAdminMessage("Password copied.", "success");
     } catch (error) {
-        setAdminMessage("Copy failed. Select the password manually.", "error");
+        selectTemporaryPassword();
+        setAdminMessage("Copy blocked by the browser. The password is selected; press Ctrl+C.", "error");
     }
 });
 
