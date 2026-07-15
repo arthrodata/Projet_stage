@@ -3,6 +3,8 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from functools import lru_cache
+import logging
+import time
 from pathlib import Path
 from typing import Any, Optional
 
@@ -17,6 +19,9 @@ from Backend.app.utils.row_normalization import CSV_EXPORT_COLUMNS, normalize_ro
 INATURALIST_API_BASE_URL = "https://api.inaturalist.org/v1"
 EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "resultats_inaturalist.csv"
 DEFAULT_QUALITY_GRADE = "research,needs_id,casual"
+TRANSIENT_STATUS_CODES = {429, 500, 502, 503, 504}
+TRANSIENT_REQUEST_EXCEPTIONS = (requests.Timeout, requests.ConnectionError)
+logger = logging.getLogger(__name__)
 
 
 def _session() -> requests.Session:
@@ -307,18 +312,47 @@ def search_inaturalist(
         params["place_id"] = country_place_id
 
     def fetch_page(page_number: int) -> tuple[list[dict[str, Any]], int | None]:
-        response = _session().get(
-            f"{INATURALIST_API_BASE_URL}/observations",
-            params={**params, "page": int(page_number)},
-            timeout=30,
-        )
-        response.raise_for_status()
-        payload = response.json()
+        last_error: requests.RequestException | None = None
+        for attempt in range(3):
+            try:
+                response = _session().get(
+                    f"{INATURALIST_API_BASE_URL}/observations",
+                    params={**params, "page": int(page_number)},
+                    timeout=30,
+                )
+                if getattr(response, "status_code", None) in TRANSIENT_STATUS_CODES and attempt < 2:
+                    time.sleep(0.5 * (attempt + 1))
+                    continue
+                response.raise_for_status()
+                payload = response.json()
+                break
+            except requests.RequestException as exc:
+                last_error = exc
+                status_code = getattr(getattr(exc, "response", None), "status_code", None)
+                is_transient_exception = isinstance(exc, TRANSIENT_REQUEST_EXCEPTIONS)
+                if (
+                    not is_transient_exception
+                    and status_code not in TRANSIENT_STATUS_CODES
+                ) or attempt >= 2:
+                    raise
+                time.sleep(0.5 * (attempt + 1))
+        else:
+            if last_error:
+                raise last_error
+            payload = {}
+
         results = payload.get("results") if isinstance(payload, dict) else None
         total_results = payload.get("total_results") if isinstance(payload, dict) else None
         total = int(total_results) if isinstance(total_results, int) else None
         rows = [item for item in results if isinstance(item, dict)] if isinstance(results, list) else []
         return rows, total
+
+    def fetch_page_or_empty(page_number: int) -> tuple[list[dict[str, Any]], int | None]:
+        try:
+            return fetch_page(page_number)
+        except requests.RequestException as exc:
+            logger.warning("iNaturalist page %s failed during export: %s", page_number, exc)
+            return [], None
 
     observations: list[dict[str, Any]] = []
     if fetch_all:
@@ -338,7 +372,7 @@ def search_inaturalist(
             workers = min(8, len(page_numbers)) if page_numbers else 0
             if workers:
                 with ThreadPoolExecutor(max_workers=workers) as executor:
-                    page_payloads = list(executor.map(fetch_page, page_numbers))
+                    page_payloads = list(executor.map(fetch_page_or_empty, page_numbers))
                 for batch, _ in page_payloads:
                     if batch:
                         observations.extend(batch)
@@ -347,7 +381,7 @@ def search_inaturalist(
         elif first_batch and len(first_batch) >= safe_limit and page_cap is None:
             current_page = 2
             while True:
-                batch, _ = fetch_page(current_page)
+                batch, _ = fetch_page_or_empty(current_page)
                 if not batch:
                     break
                 observations.extend(batch)
@@ -391,4 +425,4 @@ def search_inaturalist(
     if export_csv:
         _export_rows(rows, export_file or EXPORT_FILE)
 
-    return normalize_rows(rows)
+    return normalize_rows(rows, sort_by_event_date=True)

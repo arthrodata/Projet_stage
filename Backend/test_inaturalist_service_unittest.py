@@ -3,6 +3,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import requests
+
 from Backend.app.services.inaturalist_service import search_inaturalist
 
 
@@ -125,6 +127,50 @@ class TestINaturalistSearch(unittest.TestCase):
             search_inaturalist(species="Testudo hermanni", quality_grade="research,needs_id", export_csv=False)
 
         self.assertEqual(session.params["quality_grade"], "research,needs_id")
+
+    def test_retries_transient_connection_error(self):
+        payload = {
+            "results": [
+                {
+                    "observed_on": "2024-05-01",
+                    "place_guess": "France",
+                    "quality_grade": "research",
+                    "taxon": {"rank": "species", "name": "Testudo hermanni"},
+                }
+            ]
+        }
+
+        class FakeResponse:
+            status_code = 200
+
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return payload
+
+        class FakeSession:
+            def __init__(self):
+                self.calls = 0
+
+            def get(self, *args, **kwargs):
+                self.calls += 1
+                if self.calls == 1:
+                    raise requests.ConnectionError("temporary disconnect")
+                return FakeResponse()
+
+        session = FakeSession()
+        with patch("Backend.app.services.inaturalist_service._session", return_value=session), patch(
+            "Backend.app.services.inaturalist_service.time.sleep",
+            return_value=None,
+        ), patch(
+            "Backend.app.services.inaturalist_service.get_iucn_enrichments",
+            return_value={"Testudo hermanni": {"iucn_status": "VU"}},
+        ):
+            rows = search_inaturalist(species="Testudo hermanni", export_csv=False)
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(session.calls, 2)
 
 
 if __name__ == "__main__":

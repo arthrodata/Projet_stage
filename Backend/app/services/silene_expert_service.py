@@ -39,7 +39,7 @@ def _normalize_silene_rows(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
         item = dict(row)
         item.setdefault("source_bdd", "Silene Expert")
         prepared.append(item)
-    return normalize_rows(prepared)
+    return normalize_rows(prepared, sort_by_event_date=True)
 
 
 def _session() -> requests.Session:

@@ -293,11 +293,14 @@ function readLastSearch() {
         : savedResults && Array.isArray(savedResults.data)
           ? savedResults.data
           : null;
+    const resultCount = savedResults && Number.isFinite(Number(savedResults.result_count))
+        ? Number(savedResults.result_count)
+        : null;
 
     if (savedLegacy && Array.isArray(savedLegacy.data)) {
-        return resultsData ? { ...savedLegacy, data: resultsData } : savedLegacy;
+        return resultsData ? { ...savedLegacy, data: resultsData, result_count: resultCount || savedLegacy.result_count } : savedLegacy;
     }
-    if (resultsData) return { data: resultsData, savedAt: "" };
+    if (resultsData) return { data: resultsData, result_count: resultCount, savedAt: "" };
     return null;
 }
 
@@ -666,7 +669,7 @@ async function initDashboard() {
         const connectedSources = CONNECTED_SOURCES.length;
         const csvExports = CSV_EXPORTS.length;
 
-        const occurrences = data.length;
+        const occurrences = Number.isFinite(Number(saved && saved.result_count)) ? Number(saved.result_count) : data.length;
         const uniqueSpecies = uniqNonEmpty(data.map((item) => item && item.species)).size;
         const detectedSources = uniqNonEmpty(data.map((item) => item && item.source_bdd)).size;
 
@@ -692,7 +695,7 @@ async function initDashboard() {
 
         if (msg) msg.textContent = "Latest search loaded";
 
-        renderLastRows(data.slice(-5).reverse());
+        renderLastRows(data.slice(0, 5));
     } catch (error) {
         console.error(error);
         if (msg) msg.textContent = "Erreur dashboard.";

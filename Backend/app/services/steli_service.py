@@ -344,7 +344,7 @@ def _search_steli_via_gbif(
             row["iucn_lookup_status"] = "skipped"
             row["status"] = row.get("status") or IUCN_EMPTY_STATUS
 
-    return normalize_rows(rows)
+    return normalize_rows(rows, sort_by_event_date=True)
 
 
 def search_steli(
@@ -439,7 +439,7 @@ def search_steli(
             row["iucn_lookup_status"] = "skipped"
             row["status"] = row.get("status") or IUCN_EMPTY_STATUS
 
-    normalized = normalize_rows(rows)
+    normalized = normalize_rows(rows, sort_by_event_date=True)
 
     if export_csv:
         _write_export(normalized, effective_export_file)

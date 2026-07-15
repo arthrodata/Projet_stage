@@ -24,7 +24,7 @@ def _normalize_rows(rows: list[dict[str, Any]]) -> pd.DataFrame:
     df = pd.DataFrame(rows or [])
     if df.empty:
         return pd.DataFrame(columns=STANDARD_COLUMNS)
-    return normalize_dataframe(df, columns=STANDARD_COLUMNS)
+    return normalize_dataframe(df, columns=STANDARD_COLUMNS, sort_by_event_date=True)
 
 
 def _future_rows(source_name: str, future) -> list[dict[str, Any]]:
@@ -194,13 +194,13 @@ def search_gbif_and_silene_expert(
         inaturalist_rows = [row for row in all_rows if row.get("source_bdd") == "iNaturalist"]
         steli_rows = [row for row in all_rows if row.get("source_bdd") == "STELI"]
 
-    combined = normalize_rows((gbif_rows or []) + (silene_rows or []) + (inaturalist_rows or []) + (steli_rows or []))
+    combined = normalize_rows(
+        (gbif_rows or []) + (silene_rows or []) + (inaturalist_rows or []) + (steli_rows or []),
+        sort_by_event_date=True,
+    )
 
     if export_csv:
-        df = pd.concat(
-            [_normalize_rows(gbif_rows), _normalize_rows(silene_rows), _normalize_rows(inaturalist_rows), _normalize_rows(steli_rows)],
-            ignore_index=True,
-        )
+        df = pd.DataFrame(combined)
         effective_export_file.parent.mkdir(parents=True, exist_ok=True)
         df.reindex(columns=CSV_EXPORT_COLUMNS).to_csv(
             effective_export_file,

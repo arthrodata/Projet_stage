@@ -457,17 +457,42 @@ def normalize_row(row: dict[str, Any]) -> dict[str, str]:
     return normalized
 
 
-def normalize_rows(rows: Iterable[dict[str, Any]], *, columns: list[str] | None = None) -> list[dict[str, str]]:
+def sort_rows_by_event_date(rows: Iterable[dict[str, Any]], *, descending: bool = True) -> list[dict[str, Any]]:
+    return sorted(
+        list(rows),
+        key=lambda row: parse_any_date(row.get("eventDate") if isinstance(row, dict) else None) or pd.Timestamp.min.date(),
+        reverse=descending,
+    )
+
+
+def normalize_rows(
+    rows: Iterable[dict[str, Any]],
+    *,
+    columns: list[str] | None = None,
+    sort_by_event_date: bool = False,
+) -> list[dict[str, str]]:
     selected_columns = columns or STANDARD_COLUMNS
-    return [
+    normalized_rows = [
         {column: normalized.get(column, MISSING_VALUE) for column in selected_columns}
         for normalized in (normalize_row(row) for row in rows)
     ]
+    if sort_by_event_date:
+        return sort_rows_by_event_date(normalized_rows)
+    return normalized_rows
 
 
-def normalize_dataframe(df: pd.DataFrame, *, columns: list[str] | None = None) -> pd.DataFrame:
+def normalize_dataframe(
+    df: pd.DataFrame,
+    *,
+    columns: list[str] | None = None,
+    sort_by_event_date: bool = False,
+) -> pd.DataFrame:
     selected_columns = columns or STANDARD_COLUMNS
     if df.empty:
         return pd.DataFrame(columns=selected_columns)
-    rows = normalize_rows(df.to_dict(orient="records"), columns=selected_columns)
+    rows = normalize_rows(
+        df.to_dict(orient="records"),
+        columns=selected_columns,
+        sort_by_event_date=sort_by_event_date,
+    )
     return pd.DataFrame(rows).reindex(columns=selected_columns)

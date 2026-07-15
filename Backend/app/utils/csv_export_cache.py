@@ -11,6 +11,35 @@ from Backend.app.utils.row_normalization import CSV_EXPORT_COLUMNS, normalize_ro
 
 
 EXPORT_CACHE_VERSION = "2"
+DEFAULT_EXPORT_PAGE_LIMIT = 300
+
+
+def requested_record_cap(limit: int | None, max_pages: int | None = None) -> int | None:
+    try:
+        safe_limit = int(limit) if limit is not None else 0
+    except (TypeError, ValueError):
+        safe_limit = 0
+    try:
+        safe_pages = int(max_pages) if max_pages is not None else 0
+    except (TypeError, ValueError):
+        safe_pages = 0
+
+    if safe_limit <= 0:
+        return None
+    if safe_pages > 0:
+        return safe_limit * safe_pages
+    return safe_limit
+
+
+def export_page_count_for_record_cap(record_cap: int | None, page_limit: int = DEFAULT_EXPORT_PAGE_LIMIT) -> int | None:
+    try:
+        safe_cap = int(record_cap) if record_cap is not None else 0
+        safe_page_limit = int(page_limit)
+    except (TypeError, ValueError):
+        return None
+    if safe_cap <= 0 or safe_page_limit <= 0:
+        return None
+    return (safe_cap + safe_page_limit - 1) // safe_page_limit
 
 
 def _meta_path(csv_path: Path) -> Path:

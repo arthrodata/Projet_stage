@@ -4,8 +4,8 @@ requireAuth();
 
 const API_URL = window.API_URL;
 const HISTORY_KEY = getAuthStorageKey("biodiversity:search_history_v1");
-const DEFAULT_RESULT_LIMIT = "300";
-const DEFAULT_MAX_EXPORT_PAGES = "20";
+const DEFAULT_EXPORT_PAGE_LIMIT = "300";
+const DEFAULT_MAX_EXPORT_PAGES = "67";
 
 const SOURCE_CONFIG = {
     gbif: {
@@ -108,8 +108,9 @@ function getSourceConfig(entry) {
 }
 
 function getRecordCount(entry) {
+    if (entry && Number.isFinite(Number(entry.result_count))) return Number(entry.result_count);
     if (entry && Array.isArray(entry.data)) return entry.data.length;
-    return entry && Number.isFinite(Number(entry.result_count)) ? Number(entry.result_count) : 0;
+    return 0;
 }
 
 function getSearchLabel(entry, index) {
@@ -172,7 +173,7 @@ function buildDownloadUrl(entry) {
     if (params.country) query.append("country", params.country);
     if (params.dateFrom) query.append("date_from", params.dateFrom);
     if (params.dateTo) query.append("date_to", params.dateTo);
-    query.append("limit", params.resultLimit || DEFAULT_RESULT_LIMIT);
+    query.append("limit", DEFAULT_EXPORT_PAGE_LIMIT);
     const maxPages = params.maxPages || DEFAULT_MAX_EXPORT_PAGES;
     if (maxPages && maxPages !== "50") query.append("max_pages", maxPages);
     const source = params.source || (entry && entry.source) || "";

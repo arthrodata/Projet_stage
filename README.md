@@ -486,6 +486,7 @@ Optimisations deja en place :
 Conseils :
 
 - Pour un test rapide : `limit=50`, `max_pages=5`.
+- Par defaut, les exports utilisent `limit=300` et `max_pages=67`, soit environ 20 000 resultats maximum par source.
 - Pour un export large : augmenter progressivement `max_pages`.
 - Ajouter un filtre precis (`species` ou `genus`) reduit fortement le temps.
 - `quality_grade=research` est souvent plus strict et plus rapide.

@@ -7,6 +7,9 @@ from Backend.app.utils.database import iter_connection
 from Backend.app.utils.row_normalization import normalize_rows
 
 
+HISTORY_STORED_ROWS_LIMIT = 1000
+
+
 def remember_search(
     user: dict[str, Any] | None,
     *,
@@ -18,6 +21,7 @@ def remember_search(
         return
 
     safe_rows = normalize_rows(rows or [])
+    stored_rows = safe_rows[:HISTORY_STORED_ROWS_LIMIT]
     with iter_connection() as conn:
         conn.execute(
             """
@@ -29,7 +33,7 @@ def remember_search(
                 source,
                 json.dumps(params, ensure_ascii=False),
                 len(safe_rows),
-                json.dumps(safe_rows, ensure_ascii=False),
+                json.dumps(stored_rows, ensure_ascii=False),
             ),
         )
 

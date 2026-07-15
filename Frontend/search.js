@@ -7,7 +7,10 @@ const STORAGE_KEY = getAuthStorageKey("biodiversity:last_search_v1");
 const LAST_RESULTS_KEY = getAuthStorageKey("biodiversity_last_results");
 const HISTORY_KEY = getAuthStorageKey("biodiversity:search_history_v1");
 const DEFAULT_RESULT_LIMIT = "300";
-const DEFAULT_MAX_EXPORT_PAGES = "20";
+const DEFAULT_EXPORT_PAGE_LIMIT = "300";
+const DEFAULT_MAX_EXPORT_PAGES = "67";
+const STORED_RESULTS_LIMIT = 1000;
+const SEARCH_TIMEOUT_MS = 45000;
 
 const searchBtn = document.getElementById("searchBtn");
 const resetBtn = document.getElementById("resetBtn");
@@ -126,23 +129,7 @@ function triggerBlobDownload(blob, filename) {
 
 function getPreviewRows(data, source) {
     const rows = Array.isArray(data) ? data : [];
-    if (normalizeSource(source) !== "both") return rows.slice(0, 10);
-
-    const sourceOrder = ["GBIF", "Silene Expert", "iNaturalist", "STELI"];
-    const grouped = sourceOrder.map((sourceName) => rows.filter((row) => row && row.source_bdd === sourceName));
-    const preview = [];
-    let index = 0;
-
-    while (preview.length < 10 && grouped.some((items) => index < items.length)) {
-        grouped.forEach((items) => {
-            if (preview.length < 10 && index < items.length) {
-                preview.push(items[index]);
-            }
-        });
-        index += 1;
-    }
-
-    return preview.length ? preview : rows.slice(0, 10);
+    return rows.slice(0, 10);
 }
 
 function formatCitationDate(date) {
@@ -210,7 +197,7 @@ function showCitationBox(source, data, launchedAt) {
     if (citationFeedback) citationFeedback.textContent = "";
 }
 
-function renderResults(data, source) {
+function renderResults(data, source, totalCount) {
     resultsBody.innerHTML = "";
 
     if (!Array.isArray(data) || data.length === 0) {
@@ -227,9 +214,8 @@ function renderResults(data, source) {
     }
 
     const firstTen = getPreviewRows(data, source);
-    countText.textContent = normalizeSource(source) === "both"
-        ? `${data.length} result(s) retrieved. Showing a source-balanced preview.`
-        : `${data.length} result(s) retrieved. Showing the first 10.`;
+    const count = Number.isFinite(Number(totalCount)) ? Number(totalCount) : data.length;
+    countText.textContent = `${count} result(s) retrieved. Showing the first 10 most recent.`;
 
     function getIucnValue(item) {
         return item.status || item.iucn_status || item.redListCategory || "Not provided";
@@ -277,19 +263,23 @@ function renderSearchInProgress(source) {
 function saveLastSearch(payload) {
     try {
         const savedAt = payload.savedAt instanceof Date ? payload.savedAt.toISOString() : new Date().toISOString();
+        const fullData = Array.isArray(payload.data) ? payload.data : [];
+        const storedData = fullData.slice(0, STORED_RESULTS_LIMIT);
+        const resultCount = Number.isFinite(Number(payload.resultCount)) ? Number(payload.resultCount) : fullData.length;
         const entry = {
             id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
             savedAt,
             params: payload.params,
-            data: payload.data,
+            result_count: resultCount,
+            data: storedData,
         };
 
         localStorage.setItem(
             STORAGE_KEY,
             JSON.stringify(entry)
         );
-        // Dedicated dashboard dataset: keep the normalized result rows unchanged.
-        localStorage.setItem(LAST_RESULTS_KEY, JSON.stringify(payload.data));
+        // Dedicated dashboard dataset: keep a recent sample to avoid localStorage quota failures.
+        localStorage.setItem(LAST_RESULTS_KEY, JSON.stringify({ data: storedData, result_count: resultCount }));
 
         const rawHistory = localStorage.getItem(HISTORY_KEY);
         const history = rawHistory ? JSON.parse(rawHistory) : [];
@@ -321,7 +311,7 @@ function restoreLastSearch() {
             syncSourceCards();
         }
 
-        renderResults(saved.data, saved.params && saved.params.source);
+        renderResults(saved.data, saved.params && saved.params.source, saved.result_count);
         showCitationBox(saved.params && saved.params.source, saved.data, saved.savedAt ? new Date(saved.savedAt) : new Date());
         setMessage("Results restored after reload.", "neutral");
     } catch {
@@ -497,6 +487,11 @@ async function runSearch() {
         searchAbortController.abort();
     }
     searchAbortController = new AbortController();
+    let searchTimedOut = false;
+    const searchTimeoutId = window.setTimeout(() => {
+        searchTimedOut = true;
+        if (searchAbortController) searchAbortController.abort();
+    }, SEARCH_TIMEOUT_MS);
     params.set("_", String(Date.now()));
 
     if (dateFrom && dateTo && dateFrom > dateTo) {
@@ -552,17 +547,24 @@ async function runSearch() {
         saveLastSearch({
             params: { source, family, species, genus, country, dateFrom, dateTo, qualityGrade, resultLimit, maxPages },
             data,
+            resultCount: data.length,
             savedAt: launchedAt,
         });
 
         setMessage("Search completed.", "success");
     } catch (error) {
-        if (error && error.name === "AbortError") return;
+        if (error && error.name === "AbortError") {
+            if (searchTimedOut && currentRunId === searchRunId) {
+                setMessage("Error: search timed out. Try a smaller search or another source.", "error");
+            }
+            return;
+        }
         console.error(error);
         if (currentRunId !== searchRunId) return;
         const detail = error && error.message ? ` ${error.message}` : "";
         setMessage(`Error: unable to retrieve data.${detail}`, "error");
     } finally {
+        window.clearTimeout(searchTimeoutId);
         if (currentRunId === searchRunId) {
             setLoading(false);
             searchAbortController = null;
@@ -658,6 +660,7 @@ exportBtn.addEventListener("click", function () {
 
     let url = "";
     let defaultFilename = "resultats.csv";
+    params.set("limit", DEFAULT_EXPORT_PAGE_LIMIT);
     if (maxPages !== "") params.set("max_pages", maxPages);
 
     if (source === "gbif") {

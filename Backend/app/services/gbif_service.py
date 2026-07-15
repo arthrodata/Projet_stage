@@ -351,7 +351,7 @@ def search_gbif(
         df["status"] = IUCN_EMPTY_STATUS
         df["redListCategory"] = IUCN_EMPTY_STATUS
     df["source_bdd"] = "GBIF"
-    df = normalize_dataframe(df, columns=EXPORT_COLUMNS)
+    df = normalize_dataframe(df, columns=EXPORT_COLUMNS, sort_by_event_date=True)
 
     if export_csv:
         effective_export_file.parent.mkdir(parents=True, exist_ok=True)
