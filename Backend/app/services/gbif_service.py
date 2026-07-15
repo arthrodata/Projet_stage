@@ -15,7 +15,7 @@ from Backend.app.utils.row_normalization import (
 )
 
 
-EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "resultats.csv"
+EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "gbif_results.csv"
 TARGET_BASIS_OF_RECORD = "HUMAN_OBSERVATION"
 GBIF_SPECIES_MATCH_URL = "https://api.gbif.org/v1/species/match"
 GBIF_COUNTRIES_URL = "https://api.gbif.org/v1/enumeration/country"
@@ -205,7 +205,12 @@ def search_gbif(
     safe_limit = min(requested_limit, GBIF_MAX_PAGE_LIMIT)
     safe_page = int(page) if page and int(page) > 0 else 1
 
-    params = {"basisOfRecord": TARGET_BASIS_OF_RECORD, "limit": safe_limit}
+    params = {
+        "basisOfRecord": TARGET_BASIS_OF_RECORD,
+        "limit": safe_limit,
+        "orderBy": "eventDate",
+        "order": "desc",
+    }
     q_parts = []
     country_code = None
 

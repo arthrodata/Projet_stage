@@ -9,37 +9,37 @@ const DEFAULT_MAX_EXPORT_PAGES = "67";
 
 const SOURCE_CONFIG = {
     gbif: {
-        filename: "resultats.csv",
+        filename: "results.csv",
         source: "GBIF",
         badge: "gbif",
         url: `${API_URL}/search/csv`,
     },
     silene_expert: {
-        filename: "resultats_silene_expert.csv",
+        filename: "silene_expert_results.csv",
         source: "Silene Expert",
         badge: "silene",
         url: `${API_URL}/silene-expert/search/csv`,
     },
     both: {
-        filename: "resultats_gbif_silene_inaturalist.csv",
+        filename: "gbif_silene_inaturalist_results.csv",
         source: "Combined",
         badge: "combined",
         url: `${API_URL}/combined/search/csv`,
     },
     combined: {
-        filename: "resultats_gbif_silene_inaturalist.csv",
+        filename: "gbif_silene_inaturalist_results.csv",
         source: "Combined",
         badge: "combined",
         url: `${API_URL}/combined/search/csv`,
     },
     inaturalist: {
-        filename: "resultats_inaturalist.csv",
+        filename: "inaturalist_results.csv",
         source: "iNaturalist",
         badge: "inaturalist",
         url: `${API_URL}/inaturalist/search/csv`,
     },
     steli: {
-        filename: "resultats_steli.csv",
+        filename: "steli_results.csv",
         source: "STELI",
         badge: "steli",
         url: `${API_URL}/steli/search/csv`,
@@ -231,6 +231,46 @@ function buildCsvFromRows(rows) {
     return new Blob([`\uFEFF${lines.join("\r\n")}\r\n`], { type: "text/csv;charset=utf-8" });
 }
 
+function countCsvDataRows(text) {
+    const value = String(text || "").replace(/^\uFEFF/, "");
+    if (!value.trim()) return 0;
+
+    let records = 0;
+    let hasContent = false;
+    let inQuotes = false;
+
+    for (let index = 0; index < value.length; index += 1) {
+        const char = value[index];
+        const next = value[index + 1];
+
+        if (char === '"') {
+            if (inQuotes && next === '"') {
+                index += 1;
+            } else {
+                inQuotes = !inQuotes;
+            }
+            hasContent = true;
+        } else if ((char === "\n" || char === "\r") && !inQuotes) {
+            if (hasContent) records += 1;
+            hasContent = false;
+            if (char === "\r" && next === "\n") index += 1;
+        } else if (!/\s/.test(char)) {
+            hasContent = true;
+        }
+    }
+
+    if (hasContent) records += 1;
+    return Math.max(0, records - 1);
+}
+
+async function countCsvBlobRows(blob) {
+    try {
+        return countCsvDataRows(await blob.text());
+    } catch {
+        return null;
+    }
+}
+
 function triggerBlobDownload(blob, filename) {
     const objectUrl = URL.createObjectURL(blob);
 
@@ -351,7 +391,12 @@ async function downloadCsv(entry, button) {
         const blob = await fetchCsvWithProgress(buildDownloadUrl(entry), config.filename);
         triggerBlobDownload(blob, config.filename);
 
-        setMessage(`${config.filename} downloaded.`, "success");
+        const csvRows = await countCsvBlobRows(blob);
+        if (Number.isFinite(csvRows)) {
+            setMessage(`${config.filename} downloaded: ${formatNumber(csvRows)} row(s).`, "success");
+        } else {
+            setMessage(`${config.filename} downloaded.`, "success");
+        }
     } catch (error) {
         console.error(error);
         const detail = error && error.message ? ` ${error.message}` : "";

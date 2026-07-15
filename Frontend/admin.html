@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -22,7 +22,7 @@
             </div>
         </div>
 
-        <nav class="side-nav" aria-label="Navigation principale">
+        <nav class="side-nav" aria-label="Main navigation">
             <a class="nav-item" href="dashboard.html">
                 <span class="nav-icon">DB</span>
                 Dashboard
@@ -33,7 +33,7 @@
             </a>
             <a class="nav-item" href="exports.html">
                 <span class="nav-icon">CSV</span>
-                Exports CSV
+                CSV exports
             </a>
             <a class="nav-item active" href="admin.html" data-admin-link="true">
                 <span class="nav-icon">AD</span>
@@ -46,44 +46,44 @@
         <header class="topbar">
             <div class="topbar-title">
                 <span class="section-kicker">Administration</span>
-                <h2>Validation des utilisateurs</h2>
+                <h2>User validation</h2>
             </div>
         </header>
 
         <section class="panel">
             <div class="panel-heading compact">
                 <div>
-                    <span class="section-kicker">Comptes</span>
-                    <h3>Utilisateurs inscrits</h3>
+                    <span class="section-kicker">Accounts</span>
+                    <h3>Registered users</h3>
                 </div>
-                <div id="adminMessage" class="message-pill neutral">Chargement...</div>
+                <div id="adminMessage" class="message-pill neutral">Loading...</div>
             </div>
 
             <div id="passwordResetBox" class="password-reset-box" hidden>
                 <div>
-                    <span class="section-kicker">Mot de passe temporaire</span>
-                    <strong id="passwordResetUser">Utilisateur</strong>
+                    <span class="section-kicker">Temporary password</span>
+                    <strong id="passwordResetUser">User</strong>
                     <code id="passwordResetValue"></code>
                 </div>
-                <button type="button" id="copyPasswordBtn" class="btn-muted">Copier</button>
+                <button type="button" id="copyPasswordBtn" class="btn-muted">Copy</button>
             </div>
 
             <div class="table-card">
                 <table class="admin-table">
                     <thead>
                         <tr>
-                            <th>Nom</th>
-                            <th>Prenom</th>
+                            <th>Last name</th>
+                            <th>First name</th>
                             <th>Email</th>
-                            <th>Statut</th>
+                            <th>Status</th>
                             <th>Role</th>
-                            <th>Creation</th>
+                            <th>Created</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="usersBody">
                         <tr>
-                            <td colspan="7" class="empty-state">Chargement des utilisateurs.</td>
+                            <td colspan="7" class="empty-state">Loading users.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -94,12 +94,12 @@
             <div class="panel-heading compact">
                 <div>
                     <span class="section-kicker">Maintenance</span>
-                    <h3>Nettoyage base de donnees</h3>
+                    <h3>Database cleanup</h3>
                 </div>
             </div>
             <div class="admin-cleanup-actions">
-                <button type="button" id="clearHistoryBtn" class="btn-danger">Nettoyer historique</button>
-                <button type="button" id="deleteUnvalidatedBtn" class="btn-danger">Supprimer comptes non valides</button>
+                <button type="button" id="clearHistoryBtn" class="btn-danger">Clear search history</button>
+                <button type="button" id="deleteUnvalidatedBtn" class="btn-danger">Delete unvalidated accounts</button>
             </div>
         </section>
     </main>

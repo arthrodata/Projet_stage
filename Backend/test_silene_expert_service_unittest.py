@@ -173,6 +173,40 @@ class TestSileneExpertMappedSearch(unittest.TestCase):
             export_csv=False,
         )
 
+    def test_mapped_search_returns_rows_sorted_by_event_date_desc(self):
+        rows = [
+            {
+                "source_bdd": "Silene Expert",
+                "family": "Testudinidae",
+                "genus": "Testudo",
+                "species": "Testudo hermanni",
+                "eventDate": "2022-05-01",
+            },
+            {
+                "source_bdd": "Silene Expert",
+                "family": "Testudinidae",
+                "genus": "Testudo",
+                "species": "Testudo graeca",
+                "eventDate": "2024-05-01",
+            },
+        ]
+
+        with patch(
+            "Backend.app.services.silene_expert_service._taxhub_lookup_cd_ref",
+            return_value=None,
+        ), patch(
+            "Backend.app.services.silene_expert_service.search_silene_expert",
+            return_value=rows,
+        ):
+            result = search_silene_expert_mapped(
+                genus="Testudo",
+                limit=2,
+                export_csv=False,
+                include_iucn=False,
+            )
+
+        self.assertEqual([row["eventDate"] for row in result], ["2024-05-01", "2022-05-01"])
+
     def test_fetch_all_enriches_iucn_once_after_collecting_pages(self):
         page_rows = [
             {

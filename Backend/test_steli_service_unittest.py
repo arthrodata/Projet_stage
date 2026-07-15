@@ -63,6 +63,8 @@ class TestSteliService(unittest.TestCase):
         self.assertEqual(rows[0]["source_bdd"], "STELI")
         self.assertEqual(rows[0]["datasetName"], "Suivi Temporel des Libellules")
         self.assertEqual(session.last_params["datasetKey"], "c709bf36-4964-4771-90f0-c6ba4b351620")
+        self.assertEqual(session.last_params["orderBy"], "eventDate")
+        self.assertEqual(session.last_params["order"], "desc")
 
     def test_steli_search_adds_iucn_status(self):
         payload = {
@@ -137,6 +139,39 @@ class TestSteliService(unittest.TestCase):
         self.assertEqual(rows[0]["datasetName"], "Suivi Temporel des Libellules")
         self.assertEqual(rows[0]["basisOfRecord"], "Human observation / Suivi protocole")
         self.assertEqual(session.last_params["collectionCode"], "4A9DDA1F-B8FD-3E13-E053-2614A8C02B7C")
+
+    def test_steli_returns_rows_sorted_by_event_date_desc(self):
+        payload = {
+            "results": [
+                {
+                    "country": "FR",
+                    "decimalLatitude": 44.2,
+                    "decimalLongitude": 6.4,
+                    "eventDate": "2020-06-01",
+                    "family": "Aeshnidae",
+                    "genus": "Aeshna",
+                    "species": "Aeshna mixta",
+                },
+                {
+                    "country": "FR",
+                    "decimalLatitude": 43.2,
+                    "decimalLongitude": 5.4,
+                    "eventDate": "2024-06-01",
+                    "family": "Aeshnidae",
+                    "genus": "Aeshna",
+                    "species": "Aeshna cyanea",
+                },
+            ]
+        }
+        session = FakeSession(payload)
+
+        with patch.dict("os.environ", {"STELI_API_URL": "https://example.test/steli"}, clear=False), patch(
+            "Backend.app.services.steli_service._session",
+            return_value=session,
+        ):
+            rows = search_steli(genus="Aeshna", export_csv=False)
+
+        self.assertEqual([row["eventDate"] for row in rows], ["2024-06-01", "2020-06-01"])
 
     def test_steli_csv_export_reuses_cached_file_for_same_params(self):
         with tempfile.TemporaryDirectory() as tmp:

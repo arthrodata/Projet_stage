@@ -118,11 +118,11 @@ def create_user(email: str, password: str, first_name: str = "", last_name: str 
     clean_first_name = " ".join(str(first_name or "").strip().split())
     clean_last_name = " ".join(str(last_name or "").strip().split())
     if not clean_email or "@" not in clean_email:
-        raise HTTPException(status_code=400, detail="Email invalide.")
+        raise HTTPException(status_code=400, detail="Invalid email address.")
     if not clean_first_name or not clean_last_name:
-        raise HTTPException(status_code=400, detail="Prenom et nom requis.")
+        raise HTTPException(status_code=400, detail="First name and last name are required.")
     if len(password or "") < 6:
-        raise HTTPException(status_code=400, detail="Mot de passe trop court.")
+        raise HTTPException(status_code=400, detail="Password is too short.")
 
     is_admin = 1 if is_initial_admin_email(clean_email) else 0
     is_validated = 1 if is_admin else 0
@@ -150,12 +150,12 @@ def create_user(email: str, password: str, first_name: str = "", last_name: str 
             user_id = int(cur.lastrowid)
     except Exception as exc:
         if "UNIQUE" in str(exc).upper():
-            raise HTTPException(status_code=409, detail="Un compte existe deja avec cet email.")
+            raise HTTPException(status_code=409, detail="An account already exists with this email address.")
         raise
 
     user = get_user_by_id(user_id)
     if not user:
-        raise HTTPException(status_code=500, detail="Compte cree mais introuvable.")
+        raise HTTPException(status_code=500, detail="Account was created but could not be found.")
     return user
 
 
@@ -179,7 +179,7 @@ def mark_user_login(user_id: int) -> dict[str, Any]:
         )
     user = get_user_by_id(int(user_id))
     if not user:
-        raise HTTPException(status_code=404, detail="Utilisateur introuvable.")
+        raise HTTPException(status_code=404, detail="User not found.")
     return user
 
 
@@ -193,7 +193,7 @@ def mark_user_activity(user_id: int) -> None:
 
 def ensure_user_can_login(user: dict[str, Any]) -> None:
     if not int(user.get("is_validated") or 0):
-        raise HTTPException(status_code=403, detail="Votre compte est en attente de validation par l'administrateur.")
+        raise HTTPException(status_code=403, detail="Your account is pending administrator validation.")
 
 
 def optional_current_user(authorization: str | None = Header(default=None)) -> dict[str, Any] | None:
@@ -215,11 +215,11 @@ def optional_current_user(authorization: str | None = Header(default=None)) -> d
 
 def require_current_user(user: dict[str, Any] | None = Depends(optional_current_user)) -> dict[str, Any]:
     if not user:
-        raise HTTPException(status_code=401, detail="Authentification requise.")
+        raise HTTPException(status_code=401, detail="Authentication required.")
     return user
 
 
 def require_admin_user(user: dict[str, Any] = Depends(require_current_user)) -> dict[str, Any]:
     if not int(user.get("is_admin") or 0):
-        raise HTTPException(status_code=403, detail="Acces administrateur requis.")
+        raise HTTPException(status_code=403, detail="Administrator access required.")
     return user

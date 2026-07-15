@@ -49,6 +49,12 @@ let searchRunId = 0;
 let searchAbortController = null;
 let currentCitationText = "";
 
+function formatNumber(value) {
+    const n = Number(value || 0);
+    if (!Number.isFinite(n)) return "0";
+    return n.toLocaleString("en-US");
+}
+
 function normalizeSource(value) {
     const source = String(value || "").trim();
     if (source === "combined") return "both";
@@ -132,6 +138,46 @@ function getPreviewRows(data, source) {
     return rows.slice(0, 10);
 }
 
+function countCsvDataRows(text) {
+    const value = String(text || "").replace(/^\uFEFF/, "");
+    if (!value.trim()) return 0;
+
+    let records = 0;
+    let hasContent = false;
+    let inQuotes = false;
+
+    for (let index = 0; index < value.length; index += 1) {
+        const char = value[index];
+        const next = value[index + 1];
+
+        if (char === '"') {
+            if (inQuotes && next === '"') {
+                index += 1;
+            } else {
+                inQuotes = !inQuotes;
+            }
+            hasContent = true;
+        } else if ((char === "\n" || char === "\r") && !inQuotes) {
+            if (hasContent) records += 1;
+            hasContent = false;
+            if (char === "\r" && next === "\n") index += 1;
+        } else if (!/\s/.test(char)) {
+            hasContent = true;
+        }
+    }
+
+    if (hasContent) records += 1;
+    return Math.max(0, records - 1);
+}
+
+async function countCsvBlobRows(blob) {
+    try {
+        return countCsvDataRows(await blob.text());
+    } catch {
+        return null;
+    }
+}
+
 function formatCitationDate(date) {
     const safeDate = date instanceof Date && !Number.isNaN(date.getTime()) ? date : new Date();
     const pad = (value) => String(value).padStart(2, "0");
@@ -140,7 +186,7 @@ function formatCitationDate(date) {
     const year = safeDate.getFullYear();
     const hours = pad(safeDate.getHours());
     const minutes = pad(safeDate.getMinutes());
-    return `${day}/${month}/${year} à ${hours}:${minutes}`;
+    return `${year}-${month}-${day} at ${hours}:${minutes}`;
 }
 
 function hasIucnEnrichment(data) {
@@ -188,9 +234,9 @@ function showCitationBox(source, data, launchedAt) {
     const citationDate = formatCitationDate(launchedAt);
     const sources = buildCitationSources(source, data).join(", ");
     currentCitationText = [
-        "Données obtenues via Biodata Explorer.",
-        `Sources : ${sources}.`,
-        `Recherche effectuée le ${citationDate}.`,
+        "Data obtained through BioData Explorer.",
+        `Sources: ${sources}.`,
+        `Search performed on ${citationDate}.`,
     ].join("\n");
 
     citationBox.hidden = false;
@@ -214,8 +260,7 @@ function renderResults(data, source, totalCount) {
     }
 
     const firstTen = getPreviewRows(data, source);
-    const count = Number.isFinite(Number(totalCount)) ? Number(totalCount) : data.length;
-    countText.textContent = `${count} result(s) retrieved. Showing the first 10 most recent.`;
+    countText.textContent = "CSV row count will appear after download.";
 
     function getIucnValue(item) {
         return item.status || item.iucn_status || item.redListCategory || "Not provided";
@@ -344,9 +389,9 @@ async function readErrorDetail(response, fallback) {
 
 function formatBytes(bytes) {
     const value = Number(bytes || 0);
-    if (!Number.isFinite(value) || value <= 0) return "0 Ko";
-    if (value < 1024 * 1024) return `${Math.round(value / 1024)} Ko`;
-    return `${(value / (1024 * 1024)).toFixed(1)} Mo`;
+    if (!Number.isFinite(value) || value <= 0) return "0 KB";
+    if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
+    return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function formatSeconds(seconds) {
@@ -362,7 +407,7 @@ function showDownloadProgress(text, value, percent, indeterminate) {
     downloadProgress.hidden = false;
     downloadProgress.classList.toggle("indeterminate", Boolean(indeterminate));
     downloadProgressText.textContent = text;
-    downloadProgressValue.textContent = indeterminate ? "En cours" : value;
+    downloadProgressValue.textContent = indeterminate ? "In progress" : value;
     downloadProgressBar.style.width = indeterminate ? "40%" : `${Math.max(0, Math.min(100, Number(percent || 0)))}%`;
 }
 
@@ -377,10 +422,10 @@ async function downloadBlobWithProgress(url) {
     const startedAt = Date.now();
     let timer = window.setInterval(() => {
         const elapsed = Math.round((Date.now() - startedAt) / 1000);
-        showDownloadProgress(`Preparation du CSV... ${elapsed} s`, "En cours", 0, true);
+        showDownloadProgress(`Preparing CSV... ${elapsed} s`, "In progress", 0, true);
     }, 1000);
 
-    showDownloadProgress("Preparation du CSV...", "En cours", 0, true);
+    showDownloadProgress("Preparing CSV...", "In progress", 0, true);
     let response;
     try {
         response = await authFetch(url);
@@ -410,9 +455,9 @@ async function downloadBlobWithProgress(url) {
     const contentType = response.headers.get("Content-Type") || "text/csv;charset=utf-8";
 
     if (!response.body) {
-        showDownloadProgress("Telechargement du CSV...", "...", 0, true);
+        showDownloadProgress("Downloading CSV...", "...", 0, true);
         const blob = await response.blob();
-        showDownloadProgress("Telechargement termine.", "100%", 100, false);
+        showDownloadProgress("Download complete.", "100%", 100, false);
         return blob;
     }
 
@@ -433,22 +478,22 @@ async function downloadBlobWithProgress(url) {
             const speed = received / elapsedSeconds;
             const remainingSeconds = speed > 0 ? (total - received) / speed : 0;
             showDownloadProgress(
-                `Telechargement CSV: ${percent}% - ${formatBytes(received)} / ${formatBytes(total)} - reste ${formatSeconds(remainingSeconds)}`,
+                `CSV download: ${percent}% - ${formatBytes(received)} / ${formatBytes(total)} - ${formatSeconds(remainingSeconds)}`,
                 `${percent}%`,
                 percent,
                 false
             );
         } else {
             showDownloadProgress(
-                `Telechargement CSV en cours - ${formatBytes(received)} recus`,
-                "Calcul...",
+                `CSV download in progress - ${formatBytes(received)} received`,
+                "Calculating...",
                 35,
                 true
             );
         }
     }
 
-    showDownloadProgress("Telechargement termine.", "100%", 100, false);
+    showDownloadProgress("Download complete.", "100%", 100, false);
     return new Blob(chunks, { type: contentType });
 }
 
@@ -640,10 +685,10 @@ if (copyCitationBtn) {
                 document.execCommand("copy");
                 textarea.remove();
             }
-            if (citationFeedback) citationFeedback.textContent = "✓ Citation copiée dans le presse-papiers.";
+            if (citationFeedback) citationFeedback.textContent = "Citation copied to the clipboard.";
         } catch (error) {
             console.error(error);
-            if (citationFeedback) citationFeedback.textContent = "Impossible de copier la citation.";
+            if (citationFeedback) citationFeedback.textContent = "Unable to copy the citation.";
         } finally {
             copyCitationBtn.disabled = false;
         }
@@ -659,7 +704,7 @@ exportBtn.addEventListener("click", function () {
     }
 
     let url = "";
-    let defaultFilename = "resultats.csv";
+    let defaultFilename = "results.csv";
     params.set("limit", DEFAULT_EXPORT_PAGE_LIMIT);
     if (maxPages !== "") params.set("max_pages", maxPages);
 
@@ -688,13 +733,19 @@ exportBtn.addEventListener("click", function () {
             const blob = await downloadBlobWithProgress(url);
             triggerBlobDownload(blob, defaultFilename);
 
-            setMessage("CSV downloaded.", "success");
+            const csvRows = await countCsvBlobRows(blob);
+            if (Number.isFinite(csvRows)) {
+                countText.textContent = `${formatNumber(csvRows)} row(s) in the downloaded CSV. Preview still shows the first 10 most recent.`;
+                setMessage(`CSV downloaded: ${formatNumber(csvRows)} row(s).`, "success");
+            } else {
+                setMessage("CSV downloaded.", "success");
+            }
             window.setTimeout(hideDownloadProgress, 1200);
         } catch (error) {
             console.error(error);
             const detail = error && error.message ? ` ${error.message}` : "";
             setMessage(`Error: unable to download CSV.${detail}`, "error");
-            showDownloadProgress("Erreur pendant le telechargement.", "Erreur", 100, false);
+            showDownloadProgress("Download error.", "Error", 100, false);
         } finally {
             setLoading(false);
         }

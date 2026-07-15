@@ -26,9 +26,9 @@ def get_main_stats() -> dict[str, Any]:
         data = r.json()
         return data if isinstance(data, dict) else {"data": data}
     except requests.RequestException:
-        return {"error": "Erreur Silene"}
+        return {"error": "Silene error"}
     except ValueError:
-        return {"error": "Erreur Silene"}
+        return {"error": "Silene error"}
 
 
 def get_rank_stats() -> list[dict[str, Any]]:

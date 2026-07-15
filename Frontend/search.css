@@ -285,6 +285,35 @@ select {
     line-height: 1.45;
 }
 
+.password-field {
+    position: relative;
+}
+
+.password-field input {
+    padding-right: 78px;
+}
+
+.password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    min-width: 52px;
+    min-height: 32px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 9px;
+    color: var(--blue-dark);
+    background: #eef6ff;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 800;
+    transform: translateY(-50%);
+}
+
+.password-toggle:hover {
+    background: #dff0ff;
+}
+
 .api-card p {
     margin: 3px 0 0;
     color: #aebeda;

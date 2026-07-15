@@ -85,6 +85,53 @@ class TestGbifSearch(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["species"], "Panthera leo")
 
+    def test_search_returns_rows_sorted_by_event_date_desc(self):
+        class FakeResponse:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {
+                    "results": [
+                        {
+                            "country": "Kenya",
+                            "decimalLatitude": -1.286389,
+                            "decimalLongitude": 36.817223,
+                            "eventDate": "2022-01-02",
+                            "basisOfRecord": "HUMAN_OBSERVATION",
+                            "datasetName": "GBIF dataset",
+                            "family": "Felidae",
+                            "genus": "Panthera",
+                            "species": "Panthera leo",
+                            "scientificName": "Panthera leo",
+                        },
+                        {
+                            "country": "Kenya",
+                            "decimalLatitude": -1.286389,
+                            "decimalLongitude": 36.817223,
+                            "eventDate": "2024-01-02",
+                            "basisOfRecord": "HUMAN_OBSERVATION",
+                            "datasetName": "GBIF dataset",
+                            "family": "Felidae",
+                            "genus": "Panthera",
+                            "species": "Panthera pardus",
+                            "scientificName": "Panthera pardus",
+                        },
+                    ],
+                    "endOfRecords": True,
+                }
+
+        class FakeSession:
+            trust_env = False
+
+            def get(self, *args, **kwargs):
+                return FakeResponse()
+
+        with patch("Backend.app.services.gbif_service.requests.Session", return_value=FakeSession()):
+            rows = search_gbif(genus="Panthera", export_csv=False, include_iucn=False)
+
+        self.assertEqual([row["eventDate"] for row in rows], ["2024-01-02", "2022-01-02"])
+
     def test_search_retries_transient_occurrence_failure(self):
         class FakeResponse:
             def __init__(self, status_code, payload=None):
@@ -274,6 +321,8 @@ class TestGbifSearch(unittest.TestCase):
         self.assertEqual(rows, [])
         self.assertEqual(fake_session.last_params["limit"], 300)
         self.assertEqual(fake_session.last_params["offset"], 0)
+        self.assertEqual(fake_session.last_params["orderBy"], "eventDate")
+        self.assertEqual(fake_session.last_params["order"], "desc")
 
     def test_search_retries_occurrence_timeout(self):
         class FakeResponse:

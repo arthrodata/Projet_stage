@@ -22,7 +22,7 @@ from Backend.app.utils.row_normalization import CSV_EXPORT_COLUMNS, normalize_da
 
 SILENE_EXPERT_BASE_URL = "https://expert.silene.eu"
 TAXHUB_API_BASE_URL = "https://taxhub.silene.eu/api"
-EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "resultats_silene_expert.csv"
+EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "silene_expert_results.csv"
 DEFAULT_SILENE_EXPERT_APP_ID = "3"
 
 
@@ -585,7 +585,7 @@ def search_silene_expert(
         df["iucn_scope"] = ""
         df["status"] = IUCN_EMPTY_STATUS
 
-    df = normalize_dataframe(df)
+    df = normalize_dataframe(df, sort_by_event_date=True)
 
     # Mettre source_bdd en premiere colonne dans le CSV
     ordered_cols = ["source_bdd"] + [c for c in df.columns if c != "source_bdd"]

@@ -114,7 +114,7 @@ def export_csv(
     if not any([(family or "").strip(), (genus or "").strip(), (species or "").strip()]):
         raise HTTPException(
             status_code=400,
-            detail="Pour exporter un CSV Silene Expert, renseigner au moins un filtre taxonomique (family/genus/species).",
+            detail="To export a Silene Expert CSV, enter at least one taxonomic filter (family/genus/species).",
         )
     try:
         start_date, end_date = parse_query_date_range(date_from, date_to)
@@ -150,4 +150,4 @@ def export_csv(
         )
         remember_export(EXPORT_FILE, signature)
 
-    return csv_file_response(EXPORT_FILE, "resultats_silene_expert.csv")
+    return csv_file_response(EXPORT_FILE, "silene_expert_results.csv")

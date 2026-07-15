@@ -20,7 +20,7 @@ function formatDate(value) {
     if (!value) return "-";
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return value;
-    return date.toLocaleString("fr-FR", {
+    return date.toLocaleString("en-US", {
         year: "numeric",
         month: "2-digit",
         day: "2-digit",
@@ -41,27 +41,27 @@ function escapeHtml(value) {
 
 function renderStatus(user) {
     return user.is_validated
-        ? '<span class="status-badge status-badge-valid">Valide</span>'
-        : '<span class="status-badge status-badge-pending">Non valide</span>';
+        ? '<span class="status-badge status-badge-valid">Validated</span>'
+        : '<span class="status-badge status-badge-pending">Pending</span>';
 }
 
 function renderActions(user, currentUser) {
     if (user.is_admin) {
-        return '<span class="muted-text">Administrateur</span>';
+        return '<span class="muted-text">Administrator</span>';
     }
     if (currentUser && Number(user.id) === Number(currentUser.id)) {
-        return '<span class="muted-text">Compte actuel</span>';
+        return '<span class="muted-text">Current account</span>';
     }
 
     const validateButton = user.is_validated
-        ? `<button type="button" class="btn-muted admin-action" data-action="invalidate" data-user-id="${user.id}">Invalider</button>`
-        : `<button type="button" class="btn-primary admin-action" data-action="validate" data-user-id="${user.id}">Valider</button>`;
+        ? `<button type="button" class="btn-muted admin-action" data-action="invalidate" data-user-id="${user.id}">Invalidate</button>`
+        : `<button type="button" class="btn-primary admin-action" data-action="validate" data-user-id="${user.id}">Validate</button>`;
 
     return `
         <div class="admin-actions">
             ${validateButton}
-            <button type="button" class="btn-muted admin-action" data-action="password" data-user-id="${user.id}">Regenerer mdp</button>
-            <button type="button" class="btn-danger admin-action" data-action="delete" data-user-id="${user.id}">Supprimer</button>
+            <button type="button" class="btn-muted admin-action" data-action="password" data-user-id="${user.id}">Reset password</button>
+            <button type="button" class="btn-danger admin-action" data-action="delete" data-user-id="${user.id}">Delete</button>
         </div>
     `;
 }
@@ -69,7 +69,7 @@ function renderActions(user, currentUser) {
 function renderUsers(users) {
     const currentUser = getAuthUser();
     if (!users.length) {
-        usersBody.innerHTML = '<tr><td colspan="7" class="empty-state">Aucun utilisateur.</td></tr>';
+        usersBody.innerHTML = '<tr><td colspan="7" class="empty-state">No users.</td></tr>';
         return;
     }
 
@@ -79,7 +79,7 @@ function renderUsers(users) {
             <td>${escapeHtml(user.first_name || "-")}</td>
             <td>${escapeHtml(user.email)}</td>
             <td>${renderStatus(user)}</td>
-            <td>${user.is_admin ? "Admin" : "Utilisateur"}</td>
+            <td>${user.is_admin ? "Admin" : "User"}</td>
             <td>${escapeHtml(formatDate(user.created_at))}</td>
             <td>${renderActions(user, currentUser)}</td>
         </tr>
@@ -87,11 +87,11 @@ function renderUsers(users) {
 }
 
 async function loadUsers() {
-    setAdminMessage("Chargement...", "neutral");
+    setAdminMessage("Loading...", "neutral");
     const response = await authFetch(`${API_URL}/admin/users`, { cache: "no-store" });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-        throw new Error(payload.detail || "Acces administrateur impossible.");
+        throw new Error(payload.detail || "Administrator access failed.");
     }
     renderUsers(payload.users || []);
     setAdminMessage(`${(payload.users || []).length} utilisateur(s)`, "success");
@@ -101,17 +101,17 @@ async function updateUser(action, userId) {
     let url = `${API_URL}/admin/users/${userId}/${action}`;
     let options = { method: "PATCH" };
     if (action === "delete") {
-        const confirmed = window.confirm("Supprimer ce compte utilisateur ?");
+        const confirmed = window.confirm("Delete this user account?");
         if (!confirmed) return;
         url = `${API_URL}/admin/users/${userId}`;
         options = { method: "DELETE" };
     }
     if (action === "password") {
-        const confirmed = window.confirm("Regenerer un mot de passe temporaire pour cet utilisateur ?");
+        const confirmed = window.confirm("Generate a temporary password for this user?");
         if (!confirmed) return;
     }
 
-    setAdminMessage("Mise a jour...", "neutral");
+    setAdminMessage("Updating...", "neutral");
     const response = await authFetch(url, options);
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -121,10 +121,10 @@ async function updateUser(action, userId) {
         lastTemporaryPassword = payload.temporary_password || "";
         passwordResetUser.textContent = payload.user
             ? `${payload.user.first_name || ""} ${payload.user.last_name || ""} - ${payload.user.email}`.trim()
-            : "Utilisateur";
+            : "User";
         passwordResetValue.textContent = lastTemporaryPassword;
         passwordResetBox.hidden = !lastTemporaryPassword;
-        setAdminMessage(payload.message || "Mot de passe regenere.", "success");
+        setAdminMessage(payload.message || "Temporary password generated.", "success");
         return;
     }
     await loadUsers();
@@ -134,19 +134,19 @@ async function runCleanup(kind) {
     const isHistory = kind === "history";
     const confirmed = window.confirm(
         isHistory
-            ? "Supprimer tout l'historique des recherches pour tous les utilisateurs ?"
-            : "Supprimer tous les comptes non valides ?"
+            ? "Delete the full search history for all users?"
+            : "Delete all unvalidated accounts?"
     );
     if (!confirmed) return;
 
-    setAdminMessage("Nettoyage en cours...", "neutral");
+    setAdminMessage("Cleaning up...", "neutral");
     const url = isHistory ? `${API_URL}/admin/history` : `${API_URL}/admin/users/unvalidated`;
     const response = await authFetch(url, { method: "DELETE" });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-        throw new Error(payload.detail || "Nettoyage impossible.");
+        throw new Error(payload.detail || "Cleanup failed.");
     }
-    setAdminMessage(`${payload.deleted || 0} element(s) supprime(s).`, "success");
+    setAdminMessage(`${payload.deleted || 0} item(s) deleted.`, "success");
     if (!isHistory) await loadUsers();
 }
 
@@ -180,9 +180,9 @@ copyPasswordBtn.addEventListener("click", async () => {
     if (!lastTemporaryPassword) return;
     try {
         await navigator.clipboard.writeText(lastTemporaryPassword);
-        setAdminMessage("Mot de passe copie.", "success");
+        setAdminMessage("Password copied.", "success");
     } catch (error) {
-        setAdminMessage("Copie impossible. Selectionnez le mot de passe manuellement.", "error");
+        setAdminMessage("Copy failed. Select the password manually.", "error");
     }
 });
 

@@ -113,8 +113,19 @@ signupModeBtn.addEventListener("click", () => setAuthMode("register"));
 forgotPasswordBtn.addEventListener("click", () => {
     forgotPasswordPanel.hidden = !forgotPasswordPanel.hidden;
     if (!forgotPasswordPanel.hidden) {
-        setAuthMessage("Demandez un mot de passe temporaire a un administrateur.", "neutral");
+        setAuthMessage("Ask an administrator for a temporary password.", "neutral");
     }
+});
+
+document.querySelectorAll("[data-password-toggle]").forEach((button) => {
+    button.addEventListener("click", () => {
+        const input = document.getElementById(button.dataset.passwordToggle);
+        if (!input) return;
+        const shouldShow = input.type === "password";
+        input.type = shouldShow ? "text" : "password";
+        button.textContent = shouldShow ? "Hide" : "Show";
+        button.setAttribute("aria-label", shouldShow ? "Hide password" : "Show password");
+    });
 });
 
 setAuthMode("login");

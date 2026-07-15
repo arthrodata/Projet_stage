@@ -41,14 +41,17 @@
             </div>
             <div class="field">
                 <label for="loginPassword">Password</label>
-                <input id="loginPassword" type="password" autocomplete="current-password" required minlength="6">
+                <div class="password-field">
+                    <input id="loginPassword" type="password" autocomplete="current-password" required minlength="6">
+                    <button type="button" class="password-toggle" data-password-toggle="loginPassword" aria-label="Show password">Show</button>
+                </div>
             </div>
             <div class="auth-form-help">
-                <button type="button" id="forgotPasswordBtn" class="auth-link-button">Mot de passe oublie ?</button>
+                <button type="button" id="forgotPasswordBtn" class="auth-link-button">Forgot password?</button>
             </div>
             <div id="forgotPasswordPanel" class="auth-info-box" hidden>
-                <strong>Mot de passe oublie</strong>
-                <p>Contactez un administrateur avec votre email. Il pourra regenerer un mot de passe temporaire depuis la page Admin.</p>
+                <strong>Forgot password</strong>
+                <p>Contact an administrator with your email address. They can generate a temporary password from the Admin page.</p>
             </div>
             <div class="button-row">
                 <button type="submit" id="loginBtn" class="btn-primary">Log in</button>
@@ -72,7 +75,10 @@
             </div>
             <div class="field">
                 <label for="signupPassword">Password</label>
-                <input id="signupPassword" type="password" autocomplete="new-password" required minlength="6">
+                <div class="password-field">
+                    <input id="signupPassword" type="password" autocomplete="new-password" required minlength="6">
+                    <button type="button" class="password-toggle" data-password-toggle="signupPassword" aria-label="Show password">Show</button>
+                </div>
             </div>
             <div class="button-row">
                 <button type="submit" id="signupSubmitBtn" class="btn-primary">Create account</button>

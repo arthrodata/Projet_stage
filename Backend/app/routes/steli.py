@@ -123,4 +123,4 @@ def export_csv(
         )
         remember_export(EXPORT_FILE, signature)
 
-    return csv_file_response(EXPORT_FILE, "resultats_steli.csv")
+    return csv_file_response(EXPORT_FILE, "steli_results.csv")

@@ -259,7 +259,7 @@ function safeParseJson(raw) {
 function formatNumber(value) {
     const n = Number(value || 0);
     if (!Number.isFinite(n)) return "0";
-    return n.toLocaleString("fr-FR");
+    return n.toLocaleString("en-US");
 }
 
 function pick(item, keys) {
@@ -365,7 +365,7 @@ function calculateSpeciesDistribution(rows) {
     }
 
     return Array.from(counts, ([species, count]) => ({ species, count }))
-        .sort((a, b) => b.count - a.count || a.species.localeCompare(b.species, "fr"))
+        .sort((a, b) => b.count - a.count || a.species.localeCompare(b.species, "en"))
         .slice(0, 5);
 }
 
@@ -455,7 +455,7 @@ function buildCountryDistribution(results) {
     }
 
     return Array.from(grouped.values())
-        .sort((a, b) => b.count - a.count || a.country.localeCompare(b.country, "fr"));
+        .sort((a, b) => b.count - a.count || a.country.localeCompare(b.country, "en"));
 }
 
 function appendGeoRoute(map) {
@@ -510,7 +510,7 @@ function renderGeoDistributionChart(data) {
 
     if (typeof L === "undefined") {
         appendGeoRoute(map);
-        renderGeoEmptyState(map, "La carte interactive n'a pas pu \u00eatre charg\u00e9e.");
+        renderGeoEmptyState(map, "The interactive map could not be loaded.");
         return;
     }
 
@@ -549,7 +549,7 @@ function renderGeoDistributionChart(data) {
                 .bindPopup(`
                     <strong>${escapeHtml(item.country)}</strong><br>
                     ${escapeHtml(point.species || "Occurrence")}<br>
-                    ${formatNumber(item.count)} occ. dans le pays<br>
+                    ${formatNumber(item.count)} occurrence(s) in this country<br>
                     Point ${pointIndex + 1} / ${item.points.length}<br>
                     ${point.lat}, ${point.lon}
                 `)
@@ -562,7 +562,7 @@ function renderGeoDistributionChart(data) {
                 html: `
                     <div class="geo-country-marker-inner" style="--marker-color: ${color}">
                         <strong>${escapeHtml(item.country)}</strong>
-                        <span>${formatNumber(item.count)} occ.</span>
+                        <span>${formatNumber(item.count)} occurrence(s)</span>
                     </div>
                 `,
                 iconSize: [138, 48],
@@ -698,7 +698,7 @@ async function initDashboard() {
         renderLastRows(data.slice(0, 5));
     } catch (error) {
         console.error(error);
-        if (msg) msg.textContent = "Erreur dashboard.";
+        if (msg) msg.textContent = "Dashboard error.";
         renderLastRows([]);
         renderSpeciesDistribution([]);
         renderGeoDistributionChart([]);

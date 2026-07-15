@@ -25,7 +25,7 @@ STELI_OPENOBS_PORTAL_URL = (
     "?q=%28raw_occurrenceStatus%3A%22Pr%C3%A9sent%22%29+AND+"
     f"%28collectionCode%3A{STELI_DATASET_ID}%29#tab_mapView"
 )
-EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "resultats_steli.csv"
+EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "steli_results.csv"
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +174,7 @@ def _query_params(
 
 def _write_export(rows: list[dict[str, Any]], export_file: Path) -> None:
     export_file.parent.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(normalize_rows(rows, columns=CSV_EXPORT_COLUMNS)).reindex(columns=CSV_EXPORT_COLUMNS).to_csv(
+    pd.DataFrame(normalize_rows(rows, columns=CSV_EXPORT_COLUMNS, sort_by_event_date=True)).reindex(columns=CSV_EXPORT_COLUMNS).to_csv(
         export_file,
         index=False,
         encoding="utf-8-sig",
@@ -213,6 +213,8 @@ def _gbif_steli_params(
         "datasetKey": STELI_GBIF_DATASET_KEY,
         "limit": safe_limit,
         "offset": (safe_page - 1) * safe_limit,
+        "orderBy": "eventDate",
+        "order": "desc",
     }
 
     if species and species.strip():

@@ -100,17 +100,17 @@ def validate_user(user_id: int, admin: dict = Depends(require_admin_user)):
             (int(admin["id"]), int(user_id)),
         )
         if cur.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Utilisateur introuvable.")
+            raise HTTPException(status_code=404, detail="User not found.")
     user = _get_admin_user(user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="Utilisateur introuvable.")
+        raise HTTPException(status_code=404, detail="User not found.")
     return {"user": _public_admin_user(user)}
 
 
 @router.patch("/users/{user_id}/password")
 def reset_user_password(user_id: int, admin: dict = Depends(require_admin_user)):
     if int(user_id) == int(admin["id"]):
-        raise HTTPException(status_code=400, detail="Impossible de regenerer votre propre mot de passe.")
+        raise HTTPException(status_code=400, detail="You cannot reset your own password.")
 
     temporary_password = _generate_temporary_password()
     with iter_connection() as conn:
@@ -119,9 +119,9 @@ def reset_user_password(user_id: int, admin: dict = Depends(require_admin_user))
             (int(user_id),),
         ).fetchone()
         if not row:
-            raise HTTPException(status_code=404, detail="Utilisateur introuvable.")
+            raise HTTPException(status_code=404, detail="User not found.")
         if int(row["is_admin"] or 0):
-            raise HTTPException(status_code=400, detail="Impossible de regenerer le mot de passe d'un administrateur.")
+            raise HTTPException(status_code=400, detail="You cannot reset an administrator password.")
         conn.execute(
             "UPDATE users SET password_hash = ? WHERE id = ?",
             (hash_password(temporary_password), int(user_id)),
@@ -129,18 +129,18 @@ def reset_user_password(user_id: int, admin: dict = Depends(require_admin_user))
 
     user = _get_admin_user(user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="Utilisateur introuvable.")
+        raise HTTPException(status_code=404, detail="User not found.")
     return {
         "user": _public_admin_user(user),
         "temporary_password": temporary_password,
-        "message": "Mot de passe temporaire regenere. Il est affiche une seule fois.",
+        "message": "Temporary password generated. It is shown only once.",
     }
 
 
 @router.patch("/users/{user_id}/invalidate")
 def invalidate_user(user_id: int, admin: dict = Depends(require_admin_user)):
     if int(user_id) == int(admin["id"]):
-        raise HTTPException(status_code=400, detail="Impossible d'invalider votre propre compte administrateur.")
+        raise HTTPException(status_code=400, detail="You cannot invalidate your own administrator account.")
     with iter_connection() as conn:
         cur = conn.execute(
             """
@@ -153,25 +153,25 @@ def invalidate_user(user_id: int, admin: dict = Depends(require_admin_user)):
             (int(user_id),),
         )
         if cur.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Utilisateur introuvable.")
+            raise HTTPException(status_code=404, detail="User not found.")
     user = _get_admin_user(user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="Utilisateur introuvable.")
+        raise HTTPException(status_code=404, detail="User not found.")
     return {"user": _public_admin_user(user)}
 
 
 @router.delete("/users/{user_id}")
 def delete_user(user_id: int, admin: dict = Depends(require_admin_user)):
     if int(user_id) == int(admin["id"]):
-        raise HTTPException(status_code=400, detail="Impossible de supprimer votre propre compte administrateur.")
+        raise HTTPException(status_code=400, detail="You cannot delete your own administrator account.")
     with iter_connection() as conn:
         row = conn.execute(
             "SELECT id, is_admin FROM users WHERE id = ?",
             (int(user_id),),
         ).fetchone()
         if not row:
-            raise HTTPException(status_code=404, detail="Utilisateur introuvable.")
+            raise HTTPException(status_code=404, detail="User not found.")
         if int(row["is_admin"] or 0):
-            raise HTTPException(status_code=400, detail="Impossible de supprimer un autre administrateur.")
+            raise HTTPException(status_code=400, detail="You cannot delete another administrator.")
         conn.execute("DELETE FROM users WHERE id = ?", (int(user_id),))
     return {"deleted": True, "user_id": int(user_id)}

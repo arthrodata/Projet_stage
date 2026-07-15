@@ -82,6 +82,10 @@ class TestCombinedExport(unittest.TestCase):
                 combined = search_gbif_and_silene_expert(export_file=out, export_csv=True)
 
             self.assertEqual(len(combined), 4)
+            self.assertEqual(
+                [row["eventDate"] for row in combined],
+                ["2024-04-04", "2024-03-03", "2024-02-02", "2024-01-01"],
+            )
             self.assertTrue(out.exists())
 
             with out.open("r", encoding="utf-8-sig", newline="") as f:
@@ -94,6 +98,10 @@ class TestCombinedExport(unittest.TestCase):
                 self.assertNotIn("redListCategory", reader.fieldnames)
                 rows = list(reader)
                 self.assertEqual(len(rows), 4)
+                self.assertEqual(
+                    [row["eventDate"] for row in rows],
+                    ["2024-04-04", "2024-03-03", "2024-02-02", "2024-01-01"],
+                )
 
     def test_passes_limit_to_both_sources(self):
         with patch("Backend.app.services.combined_service.search_gbif", return_value=[]) as gbif, patch(
@@ -111,6 +119,29 @@ class TestCombinedExport(unittest.TestCase):
         self.assertNotIn("quality_grade", gbif.call_args.kwargs)
         self.assertNotIn("quality_grade", silene.call_args.kwargs)
         self.assertNotIn("quality_grade", steli.call_args.kwargs)
+
+    def test_combined_caps_total_records_after_sorting(self):
+        gbif_rows = [
+            {"source_bdd": "GBIF", "species": "A", "eventDate": "2020-01-01"},
+            {"source_bdd": "GBIF", "species": "B", "eventDate": "2024-01-01"},
+        ]
+        inaturalist_rows = [
+            {"source_bdd": "iNaturalist", "species": "C", "eventDate": "2023-01-01"},
+            {"source_bdd": "iNaturalist", "species": "D", "eventDate": "2022-01-01"},
+        ]
+
+        with patch("Backend.app.services.combined_service.search_gbif", return_value=gbif_rows), patch(
+            "Backend.app.services.combined_service.search_silene_expert_mapped", return_value=[]
+        ), patch("Backend.app.services.combined_service.search_inaturalist", return_value=inaturalist_rows), patch(
+            "Backend.app.services.combined_service.search_steli", return_value=[]
+        ):
+            combined = search_gbif_and_silene_expert(
+                export_csv=False,
+                include_iucn=False,
+                max_records=2,
+            )
+
+        self.assertEqual([row["eventDate"] for row in combined], ["2024-01-01", "2023-01-01"])
 
     def test_combined_enriches_iucn_once_after_merging(self):
         with patch("Backend.app.services.combined_service.search_gbif", return_value=[]) as gbif, patch(

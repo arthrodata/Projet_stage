@@ -74,7 +74,7 @@ async function authFetch(url, options) {
         const clone = response.clone();
         const payload = await clone.json().catch(() => ({}));
         const detail = String(payload.detail || "");
-        if (detail.includes("attente de validation")) {
+        if (detail.includes("pending administrator validation")) {
             clearAuthSession();
             window.location.href = "login.html";
         }

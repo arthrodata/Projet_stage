@@ -17,7 +17,7 @@ from Backend.app.utils.row_normalization import CSV_EXPORT_COLUMNS, normalize_ro
 
 
 INATURALIST_API_BASE_URL = "https://api.inaturalist.org/v1"
-EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "resultats_inaturalist.csv"
+EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "inaturalist_results.csv"
 DEFAULT_QUALITY_GRADE = "research,needs_id,casual"
 TRANSIENT_STATUS_CODES = {429, 500, 502, 503, 504}
 TRANSIENT_REQUEST_EXCEPTIONS = (requests.Timeout, requests.ConnectionError)
@@ -265,7 +265,7 @@ def _enrich_iucn(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def _export_rows(rows: list[dict[str, Any]], export_file: Path) -> None:
     export_file.parent.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(normalize_rows(rows, columns=CSV_EXPORT_COLUMNS)).reindex(columns=CSV_EXPORT_COLUMNS).to_csv(
+    pd.DataFrame(normalize_rows(rows, columns=CSV_EXPORT_COLUMNS, sort_by_event_date=True)).reindex(columns=CSV_EXPORT_COLUMNS).to_csv(
         export_file,
         index=False,
         encoding="utf-8-sig",

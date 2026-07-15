@@ -97,7 +97,7 @@ def export_csv(
     if not any([(family or "").strip(), (genus or "").strip(), (species or "").strip()]):
         raise HTTPException(
             status_code=400,
-            detail="Pour exporter un CSV iNaturalist, renseigner au moins un filtre taxonomique (family/genus/species).",
+            detail="To export an iNaturalist CSV, enter at least one taxonomic filter (family/genus/species).",
         )
     try:
         start_date, end_date = parse_query_date_range(date_from, date_to)
@@ -135,4 +135,4 @@ def export_csv(
         )
         remember_export(EXPORT_FILE, signature)
 
-    return csv_file_response(EXPORT_FILE, "resultats_inaturalist.csv")
+    return csv_file_response(EXPORT_FILE, "inaturalist_results.csv")

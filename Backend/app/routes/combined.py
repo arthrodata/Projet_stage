@@ -5,6 +5,7 @@ from Backend.app.utils.csv_export_cache import (
     csv_file_response,
     export_signature,
     remember_export,
+    requested_record_cap,
     write_rows_export,
 )
 from Backend.app.utils.date_filters import parse_query_date_range
@@ -125,9 +126,10 @@ def export_csv(
             fetch_all=True,
             include_iucn=True,
             max_pages=max_pages,
+            max_records=requested_record_cap(limit, max_pages),
             export_csv=True,
             export_file=COMBINED_EXPORT_FILE,
         )
         remember_export(COMBINED_EXPORT_FILE, signature)
 
-    return csv_file_response(COMBINED_EXPORT_FILE, "resultats_gbif_silene_inaturalist.csv")
+    return csv_file_response(COMBINED_EXPORT_FILE, "gbif_silene_inaturalist_results.csv")

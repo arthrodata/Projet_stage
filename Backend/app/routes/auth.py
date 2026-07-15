@@ -46,7 +46,7 @@ def register(payload: AuthPayload):
     if not user.get("is_validated"):
         return {
             "status": "pending_validation",
-            "message": "Compte cree. Il doit etre valide par l'administrateur avant connexion.",
+            "message": "Account created. It must be validated by an administrator before you can sign in.",
             "user": _public_user(user),
         }
     return {"access_token": create_token(user), "token_type": "bearer", "user": _public_user(user)}
@@ -56,7 +56,7 @@ def register(payload: AuthPayload):
 def login(payload: AuthPayload):
     user = authenticate_user(payload.email, payload.password)
     if not user:
-        raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect.")
+        raise HTTPException(status_code=401, detail="Incorrect email or password.")
     ensure_user_can_login(user)
     user = mark_user_login(int(user["id"]))
     return {"access_token": create_token(user), "token_type": "bearer", "user": _public_user(user)}

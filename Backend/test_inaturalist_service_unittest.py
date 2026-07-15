@@ -128,6 +128,43 @@ class TestINaturalistSearch(unittest.TestCase):
 
         self.assertEqual(session.params["quality_grade"], "research,needs_id")
 
+    def test_returns_rows_sorted_by_event_date_desc(self):
+        payload = {
+            "results": [
+                {
+                    "observed_on": "2022-05-01",
+                    "place_guess": "France",
+                    "quality_grade": "research",
+                    "taxon": {"rank": "species", "name": "Testudo hermanni"},
+                },
+                {
+                    "observed_on": "2024-05-01",
+                    "place_guess": "France",
+                    "quality_grade": "research",
+                    "taxon": {"rank": "species", "name": "Testudo graeca"},
+                },
+            ]
+        }
+
+        class FakeResponse:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return payload
+
+        class FakeSession:
+            def get(self, *args, **kwargs):
+                return FakeResponse()
+
+        with patch("Backend.app.services.inaturalist_service._session", return_value=FakeSession()), patch(
+            "Backend.app.services.inaturalist_service.get_iucn_enrichments",
+            return_value={},
+        ):
+            rows = search_inaturalist(genus="Testudo", export_csv=False)
+
+        self.assertEqual([row["eventDate"] for row in rows], ["2024-05-01", "2022-05-01"])
+
     def test_retries_transient_connection_error(self):
         payload = {
             "results": [

@@ -16,7 +16,7 @@ from Backend.app.services.steli_service import search_steli
 from Backend.app.utils.row_normalization import CSV_EXPORT_COLUMNS, STANDARD_COLUMNS, normalize_dataframe, normalize_rows
 
 
-COMBINED_EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "resultats_gbif_silene_inaturalist.csv"
+COMBINED_EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "gbif_silene_inaturalist_results.csv"
 logger = logging.getLogger(__name__)
 
 
@@ -198,6 +198,8 @@ def search_gbif_and_silene_expert(
         (gbif_rows or []) + (silene_rows or []) + (inaturalist_rows or []) + (steli_rows or []),
         sort_by_event_date=True,
     )
+    if max_records is not None and len(combined) > int(max_records):
+        combined = combined[: int(max_records)]
 
     if export_csv:
         df = pd.DataFrame(combined)
