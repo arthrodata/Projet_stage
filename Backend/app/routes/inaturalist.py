@@ -92,7 +92,6 @@ def export_csv(
     quality_grade: str = None,
     limit: int = 200,
     max_pages: int | None = None,
-    include_iucn: bool = False,
     refresh: str | None = None,
 ):
     if not any([(family or "").strip(), (genus or "").strip(), (species or "").strip()]):
@@ -116,7 +115,6 @@ def export_csv(
         quality_grade=quality_grade,
         limit=limit,
         max_pages=max_pages,
-        include_iucn=include_iucn,
     )
     if refresh or not cached_export_matches(EXPORT_FILE, signature):
         search_inaturalist(
@@ -130,7 +128,7 @@ def export_csv(
             limit=limit,
             page=1,
             fetch_all=True,
-            include_iucn=include_iucn,
+            include_iucn=True,
             max_pages=max_pages,
             export_csv=True,
             export_file=EXPORT_FILE,

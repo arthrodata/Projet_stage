@@ -37,7 +37,6 @@ const countryInput = document.getElementById("country");
 const dateFromInput = document.getElementById("dateFrom");
 const dateToInput = document.getElementById("dateTo");
 const qualityGradeInput = document.getElementById("qualityGrade");
-const includeIucnExportInput = document.getElementById("includeIucnExport");
 const sourceHint = document.getElementById("sourceHint");
 const SOURCE_LABELS = {
     gbif: "GBIF",
@@ -708,7 +707,6 @@ exportBtn.addEventListener("click", function () {
     let defaultFilename = "results.csv";
     params.set("limit", DEFAULT_EXPORT_PAGE_LIMIT);
     if (maxPages !== "") params.set("max_pages", maxPages);
-    params.set("include_iucn", includeIucnExportInput && includeIucnExportInput.checked ? "true" : "false");
 
     if (source === "gbif") {
         url = `${API_URL}/search/csv?${params.toString()}`;
