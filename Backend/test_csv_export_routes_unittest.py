@@ -13,7 +13,7 @@ class TestCsvExportRoutes(unittest.TestCase):
             "Backend.app.routes.silene_expert.EXPORT_FILE", Path(tmp) / "silene.csv"
         ), patch("Backend.app.routes.silene_expert.search_silene_expert_mapped") as service:
             service.side_effect = lambda **kwargs: Path(kwargs["export_file"]).write_text("x", encoding="utf-8")
-            silene_expert.export_csv(species="Testudo hermanni")
+            silene_expert.export_csv(species="Testudo hermanni", include_iucn=True)
 
         self.assertTrue(service.call_args.kwargs["include_iucn"])
 
@@ -22,7 +22,7 @@ class TestCsvExportRoutes(unittest.TestCase):
             "Backend.app.routes.search.EXPORT_FILE", Path(tmp) / "gbif.csv"
         ), patch("Backend.app.routes.search.search_gbif") as service:
             service.side_effect = lambda **kwargs: Path(kwargs["export_file"]).write_text("x", encoding="utf-8")
-            search.export_csv(species="Testudo hermanni")
+            search.export_csv(species="Testudo hermanni", include_iucn=True)
 
         self.assertTrue(service.call_args.kwargs["include_iucn"])
 
@@ -31,7 +31,7 @@ class TestCsvExportRoutes(unittest.TestCase):
             "Backend.app.routes.combined.COMBINED_EXPORT_FILE", Path(tmp) / "combined.csv"
         ), patch("Backend.app.routes.combined.search_gbif_and_silene_expert") as service:
             service.side_effect = lambda **kwargs: Path(kwargs["export_file"]).write_text("x", encoding="utf-8")
-            combined.export_csv(species="Testudo hermanni")
+            combined.export_csv(species="Testudo hermanni", include_iucn=True)
 
         self.assertTrue(service.call_args.kwargs["include_iucn"])
 
@@ -40,7 +40,7 @@ class TestCsvExportRoutes(unittest.TestCase):
             "Backend.app.routes.inaturalist.EXPORT_FILE", Path(tmp) / "inat.csv"
         ), patch("Backend.app.routes.inaturalist.search_inaturalist") as service:
             service.side_effect = lambda **kwargs: Path(kwargs["export_file"]).write_text("x", encoding="utf-8")
-            inaturalist.export_csv(species="Testudo hermanni")
+            inaturalist.export_csv(species="Testudo hermanni", include_iucn=True)
 
         self.assertTrue(service.call_args.kwargs["include_iucn"])
 
@@ -58,6 +58,7 @@ class TestCsvExportRoutes(unittest.TestCase):
                 date_to=None,
                 limit=300,
                 max_pages=None,
+                include_iucn=False,
             )
             remember_export(export_file, signature)
 
@@ -83,6 +84,7 @@ class TestCsvExportRoutes(unittest.TestCase):
                 date_to=None,
                 limit=300,
                 max_pages=None,
+                include_iucn=False,
             )
             remember_export(export_file, signature)
 
@@ -114,6 +116,7 @@ class TestCsvExportRoutes(unittest.TestCase):
                 date_to=None,
                 limit=200,
                 max_pages=None,
+                include_iucn=False,
             )
             remember_export(export_file, signature)
 
@@ -140,6 +143,7 @@ class TestCsvExportRoutes(unittest.TestCase):
                 quality_grade=None,
                 limit=200,
                 max_pages=None,
+                include_iucn=False,
             )
             remember_export(export_file, signature)
 
@@ -166,6 +170,7 @@ class TestCsvExportRoutes(unittest.TestCase):
                 quality_grade=None,
                 limit=200,
                 max_pages=None,
+                include_iucn=False,
             )
             remember_export(export_file, signature)
 

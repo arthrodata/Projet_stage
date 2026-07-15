@@ -87,6 +87,7 @@ def export_csv(
     date_to: str = None,
     limit: int = 300,
     max_pages: int | None = None,
+    include_iucn: bool = False,
     refresh: str | None = None,
 ):
     if not any([(family or "").strip(), (genus or "").strip(), (species or "").strip()]):
@@ -109,6 +110,7 @@ def export_csv(
         date_to=date_to,
         limit=limit,
         max_pages=max_pages,
+        include_iucn=include_iucn,
     )
     if refresh or not cached_export_matches(EXPORT_FILE, signature):
         search_gbif(
@@ -120,7 +122,7 @@ def export_csv(
             date_to=end_date,
             limit=limit,
             fetch_all=True,
-            include_iucn=True,
+            include_iucn=include_iucn,
             max_pages=max_pages,
             export_csv=True,
             export_file=EXPORT_FILE,

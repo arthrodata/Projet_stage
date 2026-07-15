@@ -544,6 +544,21 @@ select {
     min-width: 0;
 }
 
+.export-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #52627a;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.export-option input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--blue);
+}
+
 .btn-primary,
 .btn-muted,
 .btn-export,

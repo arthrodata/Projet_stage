@@ -88,6 +88,7 @@ def export_csv(
     date_to: str = None,
     limit: int = 300,
     max_pages: int | None = None,
+    include_iucn: bool = False,
     refresh: str | None = None,
 ):
     try:
@@ -105,6 +106,7 @@ def export_csv(
         date_to=date_to,
         limit=limit,
         max_pages=max_pages,
+        include_iucn=include_iucn,
     )
     if refresh or not cached_export_matches(EXPORT_FILE, signature):
         search_steli(
@@ -118,6 +120,7 @@ def export_csv(
             page=1,
             fetch_all=True,
             max_pages=max_pages,
+            include_iucn=include_iucn,
             export_csv=True,
             export_file=EXPORT_FILE,
         )

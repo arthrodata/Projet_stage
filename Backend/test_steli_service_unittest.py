@@ -187,6 +187,7 @@ class TestSteliService(unittest.TestCase):
                 date_to=None,
                 limit=300,
                 max_pages=None,
+                include_iucn=False,
             )
             remember_export(export_file, signature)
 
