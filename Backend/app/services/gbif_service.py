@@ -2,9 +2,11 @@ from pathlib import Path
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
+import threading
 import time
 import pandas as pd
 import requests
+from requests.adapters import HTTPAdapter
 
 from Backend.app.services.iucn_service import IUCN_EMPTY_STATUS, get_iucn_enrichments
 from Backend.app.utils.date_filters import parse_any_date
@@ -24,6 +26,22 @@ GBIF_OCCURRENCE_SEARCH_URL = "https://api.gbif.org/v1/occurrence/search"
 GBIF_MAX_PAGE_LIMIT = 300
 TRANSIENT_STATUS_CODES = {429, 500, 502, 503, 504}
 TRANSIENT_REQUEST_EXCEPTIONS = (requests.Timeout, requests.ConnectionError)
+_THREAD_LOCAL = threading.local()
+
+
+def _session() -> requests.Session:
+    session = getattr(_THREAD_LOCAL, "gbif_session", None)
+    session_factory = getattr(_THREAD_LOCAL, "gbif_session_factory", None)
+    if session is None or session_factory is not requests.Session:
+        session = requests.Session()
+        session.trust_env = False
+        if hasattr(session, "mount"):
+            adapter = HTTPAdapter(pool_connections=16, pool_maxsize=16)
+            session.mount("https://", adapter)
+            session.mount("http://", adapter)
+        _THREAD_LOCAL.gbif_session = session
+        _THREAD_LOCAL.gbif_session_factory = requests.Session
+    return session
 
 
 def get_country_code(country):
@@ -47,9 +65,7 @@ def get_country_code(country):
     if country_lower in aliases:
         return aliases[country_lower]
 
-    session = requests.Session()
-    session.trust_env = False
-    response = session.get(GBIF_COUNTRIES_URL, timeout=20)
+    response = _session().get(GBIF_COUNTRIES_URL, timeout=20)
     response.raise_for_status()
     for item in response.json():
         names = [
@@ -65,9 +81,7 @@ def get_country_code(country):
 
 
 def get_gbif_family_key(family):
-    session = requests.Session()
-    session.trust_env = False
-    response = session.get(
+    response = _session().get(
         GBIF_SPECIES_MATCH_URL,
         params={"name": family, "rank": "FAMILY"},
         timeout=20,
@@ -86,9 +100,7 @@ def get_gbif_taxon_key(name: str, rank: str) -> int | None:
     if not query:
         return None
 
-    session = requests.Session()
-    session.trust_env = False
-    response = session.get(
+    response = _session().get(
         GBIF_SPECIES_MATCH_URL,
         params={"name": query, "rank": rank},
         timeout=20,
@@ -233,10 +245,8 @@ def search_gbif(
     def fetch_page(offset: int) -> dict:
         last_error: requests.RequestException | None = None
         for attempt in range(3):
-            session = requests.Session()
-            session.trust_env = False
             try:
-                r = session.get(
+                r = _session().get(
                     GBIF_OCCURRENCE_SEARCH_URL,
                     params={**params, "offset": int(offset)},
                     timeout=30,
@@ -396,9 +406,7 @@ def estimate_gbif_count(
     if q_parts:
         params["q"] = " ".join(q_parts)
 
-    session = requests.Session()
-    session.trust_env = False
-    response = session.get("https://api.gbif.org/v1/occurrence/search", params=params, timeout=20)
+    response = _session().get("https://api.gbif.org/v1/occurrence/search", params=params, timeout=20)
     response.raise_for_status()
     data = response.json()
     if not isinstance(data, dict):

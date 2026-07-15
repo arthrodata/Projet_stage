@@ -3,6 +3,9 @@ from __future__ import annotations
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
+import json
+from pathlib import Path
+import threading
 from typing import Any
 
 import requests
@@ -12,6 +15,63 @@ IUCN_API_BASE_URL = "https://api.iucnredlist.org/api/v4"
 IUCN_GLOBAL_SCOPE_CODE = "1"
 IUCN_EMPTY_STATUS = "Non renseigne"
 IUCN_ALLOWED_CODES = {"LC", "NT", "VU", "EN", "CR", "EW", "EX", "DD", "NE"}
+IUCN_CACHE_VERSION = "1"
+_CACHE_LOCK = threading.RLock()
+_DISK_CACHE: dict[str, dict[str, Any]] | None = None
+
+
+def _cache_path() -> Path:
+    configured = os.getenv("IUCN_CACHE_FILE", "").strip()
+    if configured:
+        return Path(configured)
+    return Path(__file__).resolve().parents[2] / "exports" / "iucn_cache.json"
+
+
+def _cache_key(genus: str, species: str) -> str:
+    return f"{genus.strip().casefold()} {species.strip().casefold()}"
+
+
+def _load_disk_cache() -> dict[str, dict[str, Any]]:
+    global _DISK_CACHE
+    with _CACHE_LOCK:
+        if _DISK_CACHE is not None:
+            return _DISK_CACHE
+
+        path = _cache_path()
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            _DISK_CACHE = {}
+            return _DISK_CACHE
+
+        if payload.get("version") != IUCN_CACHE_VERSION or not isinstance(payload.get("items"), dict):
+            _DISK_CACHE = {}
+            return _DISK_CACHE
+
+        _DISK_CACHE = {
+            str(key): value
+            for key, value in payload["items"].items()
+            if isinstance(value, dict)
+        }
+        return _DISK_CACHE
+
+
+def _remember_disk_cache(key: str, result: dict[str, Any]) -> None:
+    if result.get("iucn_lookup_status") in {"api_error", "missing_token"}:
+        return
+
+    with _CACHE_LOCK:
+        cache = _load_disk_cache()
+        cache[key] = dict(result)
+        path = _cache_path()
+        payload = {"version": IUCN_CACHE_VERSION, "items": cache}
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp_path = path.with_suffix(f"{path.suffix}.tmp")
+            tmp_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+            tmp_path.replace(path)
+        except OSError:
+            return
 
 
 def split_species_name(scientific_name: str | None) -> tuple[str, str] | None:
@@ -119,7 +179,14 @@ def get_iucn_enrichment(scientific_name: str | None) -> dict[str, Any]:
         return _new_result("missing_token")
 
     genus, species = taxon
-    return dict(_get_iucn_enrichment_cached(token, genus, species))
+    key = _cache_key(genus, species)
+    cached = _load_disk_cache().get(key)
+    if cached:
+        return dict(cached)
+
+    result = dict(_get_iucn_enrichment_cached(token, genus, species))
+    _remember_disk_cache(key, result)
+    return result
 
 
 def get_iucn_enrichments(scientific_names: list[str], *, max_workers: int = 8) -> dict[str, dict[str, Any]]:

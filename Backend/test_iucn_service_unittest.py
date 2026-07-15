@@ -1,3 +1,4 @@
+import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
@@ -7,6 +8,10 @@ from Backend.app.services import iucn_service
 class TestIucnService(unittest.TestCase):
     def setUp(self):
         iucn_service._get_iucn_enrichment_cached.cache_clear()
+        iucn_service._DISK_CACHE = None
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmpdir.cleanup)
+        self.cache_file = f"{self.tmpdir.name}/iucn_cache.json"
 
     def test_selects_latest_global_assessment(self):
         payload = {
@@ -31,7 +36,7 @@ class TestIucnService(unittest.TestCase):
         response.json.return_value = payload
         response.raise_for_status.return_value = None
 
-        with patch.dict("os.environ", {"IUCN_TOKEN": "token"}), patch(
+        with patch.dict("os.environ", {"IUCN_TOKEN": "token", "IUCN_CACHE_FILE": self.cache_file}), patch(
             "Backend.app.services.iucn_service.requests.Session.get",
             return_value=response,
         ):
@@ -43,7 +48,7 @@ class TestIucnService(unittest.TestCase):
         self.assertEqual(enrichment["iucn_assessment_id"], 20)
 
     def test_api_errors_are_not_not_evaluated(self):
-        with patch.dict("os.environ", {"IUCN_TOKEN": "token"}), patch(
+        with patch.dict("os.environ", {"IUCN_TOKEN": "token", "IUCN_CACHE_FILE": self.cache_file}), patch(
             "Backend.app.services.iucn_service.requests.Session.get",
             side_effect=iucn_service.requests.ConnectionError,
         ):
