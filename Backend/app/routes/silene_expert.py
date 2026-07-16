@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Any
 from Backend.app.utils.date_filters import parse_query_date_range
@@ -10,6 +12,7 @@ from Backend.app.utils.csv_export_cache import (
 )
 from Backend.app.utils.auth import optional_current_user
 from Backend.app.utils.history import remember_search
+from Backend.app.utils.request_debug import log_endpoint_result, params_hash
 
 from Backend.app.services.silene_expert_service import (
     EXPORT_FILE,
@@ -19,6 +22,8 @@ from Backend.app.services.silene_expert_service import (
 )
 
 router = APIRouter(prefix="/silene-expert", tags=["silene-expert"])
+PREVIEW_EXPORT_FILE = EXPORT_FILE.with_name("silene_expert_preview_results.csv")
+logger = logging.getLogger(__name__)
 
 
 @router.get("/status")
@@ -55,6 +60,17 @@ def search(
         start_date, end_date = parse_query_date_range(date_from, date_to)
     except ValueError:
         raise HTTPException(status_code=400, detail="date_from/date_to must be YYYY-MM-DD and date_from <= date_to.")
+    debug_params = {
+        "family": family,
+        "genus": genus,
+        "species": species,
+        "country": country,
+        "date_from": date_from,
+        "date_to": date_to,
+        "limit": limit,
+        "page": page,
+        "fetch_all": False,
+    }
     data = search_silene_expert_mapped(
         family=family,
         genus=genus,
@@ -66,8 +82,9 @@ def search(
         page=page,
         export_csv=False,
     )
+    log_endpoint_result(logger, endpoint="/silene-expert/search", user=user, params=debug_params, rows=data)
     write_rows_export(
-        EXPORT_FILE,
+        PREVIEW_EXPORT_FILE,
         data,
         export_signature(
             "silene_expert_search",
@@ -121,6 +138,17 @@ def export_csv(
     except ValueError:
         raise HTTPException(status_code=400, detail="date_from/date_to must be YYYY-MM-DD and date_from <= date_to.")
 
+    debug_params = {
+        "family": family,
+        "genus": genus,
+        "species": species,
+        "country": country,
+        "date_from": date_from,
+        "date_to": date_to,
+        "limit": limit,
+        "max_pages": max_pages,
+        "fetch_all": True,
+    }
     signature = export_signature(
         "silene_expert",
         family=family,
@@ -133,7 +161,7 @@ def export_csv(
         max_pages=max_pages,
     )
     if refresh or not cached_export_matches(EXPORT_FILE, signature):
-        search_silene_expert_mapped(
+        rows = search_silene_expert_mapped(
             family=family,
             genus=genus,
             species=species,
@@ -149,5 +177,20 @@ def export_csv(
             export_file=EXPORT_FILE,
         )
         remember_export(EXPORT_FILE, signature)
+        log_endpoint_result(
+            logger,
+            endpoint="/silene-expert/search/csv",
+            user=None,
+            params=debug_params,
+            rows=rows,
+            extra={"cache": "miss"},
+        )
+    else:
+        logger.info(
+            "request_debug endpoint=/silene-expert/search/csv user=anonymous params_hash=%s params=%s cache=hit file=%s",
+            params_hash(debug_params),
+            signature,
+            EXPORT_FILE,
+        )
 
     return csv_file_response(EXPORT_FILE, "silene_expert_results.csv")

@@ -279,15 +279,27 @@ def _search_steli_via_gbif(
             page=page_number,
         )
         try:
+            logger.info(
+                "external_request source=STELI_GBIF_FALLBACK url=%s params=%s",
+                STELI_GBIF_OCCURRENCE_URL,
+                params,
+            )
             response = _session().get(STELI_GBIF_OCCURRENCE_URL, params=params, timeout=30)
             response.raise_for_status()
             payload = response.json()
         except (requests.RequestException, ValueError) as exc:
-            logger.warning("STELI GBIF fallback unavailable: %s", exc)
+            logger.warning("external_error source=STELI_GBIF_FALLBACK page=%s error=%s", page_number, exc)
             return [], True
 
         records = payload.get("results") if isinstance(payload, dict) else []
         end_of_records = bool(payload.get("endOfRecords")) if isinstance(payload, dict) else True
+        logger.info(
+            "external_response source=STELI_GBIF_FALLBACK page=%s rows=%s endOfRecords=%s count=%s",
+            page_number,
+            len(records) if isinstance(records, list) else 0,
+            end_of_records,
+            payload.get("count") if isinstance(payload, dict) else None,
+        )
         return [record for record in records if isinstance(record, dict)], end_of_records
 
     if fetch_all:
@@ -325,6 +337,13 @@ def _search_steli_via_gbif(
 
         if max_records is not None and len(records) >= int(max_records):
             records = records[: int(max_records)]
+        logger.info(
+            "pagination_summary source=STELI fetch_all=true page_limit=%s max_pages=%s max_records=%s rows=%s",
+            limit,
+            max_pages,
+            max_records,
+            len(records),
+        )
     else:
         records, _ = fetch_page(page)
 
@@ -412,18 +431,19 @@ def search_steli(
         page=safe_page,
     )
 
-    logger.info("Calling STELI endpoint %s with dataset %s", api_url, STELI_DATASET_ID)
+    logger.info("external_request source=STELI url=%s params=%s dataset=%s", api_url, params, STELI_DATASET_ID)
     try:
         response = _session().get(api_url, params=params, timeout=30)
         response.raise_for_status()
         payload = response.json()
     except (requests.RequestException, ValueError) as exc:
-        logger.warning("STELI endpoint unavailable or invalid: %s", exc)
+        logger.warning("external_error source=STELI error=%s", exc)
         if export_csv:
             _write_export([], effective_export_file)
         return []
 
     rows = [_map_record(record) for record in _extract_records(payload)]
+    logger.info("external_response source=STELI rows=%s", len(rows))
     rows = _apply_filters(
         rows,
         family=family,

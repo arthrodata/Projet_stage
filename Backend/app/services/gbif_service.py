@@ -2,6 +2,7 @@ from pathlib import Path
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
+import logging
 import threading
 import time
 import pandas as pd
@@ -27,6 +28,7 @@ GBIF_MAX_PAGE_LIMIT = 300
 TRANSIENT_STATUS_CODES = {429, 500, 502, 503, 504}
 TRANSIENT_REQUEST_EXCEPTIONS = (requests.Timeout, requests.ConnectionError)
 _THREAD_LOCAL = threading.local()
+logger = logging.getLogger(__name__)
 
 
 def _session() -> requests.Session:
@@ -245,17 +247,38 @@ def search_gbif(
     def fetch_page(offset: int) -> dict:
         last_error: requests.RequestException | None = None
         for attempt in range(3):
+            request_params = {**params, "offset": int(offset)}
+            logger.info(
+                "external_request source=GBIF url=%s params=%s attempt=%s",
+                GBIF_OCCURRENCE_SEARCH_URL,
+                request_params,
+                attempt + 1,
+            )
             try:
                 r = _session().get(
                     GBIF_OCCURRENCE_SEARCH_URL,
-                    params={**params, "offset": int(offset)},
+                    params=request_params,
                     timeout=30,
                 )
                 if getattr(r, "status_code", None) in TRANSIENT_STATUS_CODES and attempt < 2:
+                    logger.warning(
+                        "external_retry source=GBIF status=%s offset=%s attempt=%s",
+                        getattr(r, "status_code", None),
+                        offset,
+                        attempt + 1,
+                    )
                     time.sleep(0.5 * (attempt + 1))
                     continue
                 r.raise_for_status()
                 data = r.json()
+                results = data.get("results") if isinstance(data, dict) else []
+                logger.info(
+                    "external_response source=GBIF offset=%s rows=%s endOfRecords=%s count=%s",
+                    offset,
+                    len(results) if isinstance(results, list) else 0,
+                    data.get("endOfRecords") if isinstance(data, dict) else None,
+                    data.get("count") if isinstance(data, dict) else None,
+                )
                 return data if isinstance(data, dict) else {}
             except requests.RequestException as exc:
                 last_error = exc
@@ -265,6 +288,7 @@ def search_gbif(
                     not is_transient_exception
                     and status_code not in TRANSIENT_STATUS_CODES
                 ) or attempt >= 2:
+                    logger.warning("external_error source=GBIF offset=%s error=%s", offset, exc)
                     raise
                 time.sleep(0.5 * (attempt + 1))
         if last_error:
@@ -314,6 +338,13 @@ def search_gbif(
 
         if max_records is not None and len(all_results) >= int(max_records):
             all_results = all_results[: int(max_records)]
+        logger.info(
+            "pagination_summary source=GBIF fetch_all=true page_limit=%s max_pages=%s max_records=%s rows=%s",
+            safe_limit,
+            max_pages,
+            max_records,
+            len(all_results),
+        )
         df = pd.DataFrame(all_results)
     else:
         offset = (safe_page - 1) * safe_limit

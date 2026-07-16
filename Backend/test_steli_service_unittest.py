@@ -238,11 +238,11 @@ class TestSteliService(unittest.TestCase):
         ]
 
         with tempfile.TemporaryDirectory() as tmp:
-            export_file = Path(tmp) / "resultats_steli.csv"
+            export_file = Path(tmp) / "resultats_steli_preview.csv"
             original = "source_bdd,species\nold,previous\n"
             export_file.write_text(original, encoding="utf-8")
 
-            with patch("Backend.app.routes.steli.EXPORT_FILE", export_file), patch(
+            with patch("Backend.app.routes.steli.PREVIEW_EXPORT_FILE", export_file), patch(
                 "Backend.app.routes.steli.search_steli",
                 return_value=rows,
             ):
@@ -257,11 +257,11 @@ class TestSteliService(unittest.TestCase):
 
     def test_steli_empty_search_clears_previous_export_csv(self):
         with tempfile.TemporaryDirectory() as tmp:
-            export_file = Path(tmp) / "resultats_steli.csv"
+            export_file = Path(tmp) / "resultats_steli_preview.csv"
             original = "source_bdd,species\nSTELI,Orthetrum cancellatum\n"
             export_file.write_text(original, encoding="utf-8")
 
-            with patch("Backend.app.routes.steli.EXPORT_FILE", export_file), patch(
+            with patch("Backend.app.routes.steli.PREVIEW_EXPORT_FILE", export_file), patch(
                 "Backend.app.routes.steli.search_steli",
                 return_value=[],
             ):

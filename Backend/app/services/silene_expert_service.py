@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import logging
 import threading
 import time
 from dataclasses import dataclass
@@ -23,6 +24,7 @@ from Backend.app.utils.row_normalization import CSV_EXPORT_COLUMNS, normalize_da
 SILENE_EXPERT_BASE_URL = "https://expert.silene.eu"
 TAXHUB_API_BASE_URL = "https://taxhub.silene.eu/api"
 EXPORT_FILE = Path(__file__).resolve().parents[2] / "exports" / "silene_expert_results.csv"
+logger = logging.getLogger(__name__)
 DEFAULT_SILENE_EXPERT_APP_ID = "3"
 
 
@@ -411,6 +413,7 @@ def search_silene_expert(
 
     # Si pas de token : on ne peut pas acceder aux donnees Expert
     if not token:
+        logger.warning("external_error source=SileneExpert reason=missing_token")
         if export_csv:
             effective_export_file.parent.mkdir(parents=True, exist_ok=True)
             pd.DataFrame(
@@ -432,16 +435,20 @@ def search_silene_expert(
         )
 
     try:
+        logger.info("external_request source=SileneExpert url=%s params=%s payload=%s", url, params, payload or {})
         r = do_request(token)
         if r.status_code in (401, 403):
+            logger.warning("external_retry source=SileneExpert status=%s reason=refresh_token", r.status_code)
             refreshed = _force_refresh_token()
             if refreshed:
                 r = do_request(refreshed)
         if r.status_code in (401, 403, 404):
+            logger.warning("external_error source=SileneExpert status=%s", r.status_code)
             return []
         r.raise_for_status()
         data = r.json()
-    except (requests.RequestException, ValueError):
+    except (requests.RequestException, ValueError) as exc:
+        logger.warning("external_error source=SileneExpert error=%s", exc)
         return []
 
     rows: list[dict[str, Any]] = []
@@ -599,7 +606,9 @@ def search_silene_expert(
             encoding="utf-8-sig",
         )
 
-    return df.to_dict(orient="records")
+    rows = df.to_dict(orient="records")
+    logger.info("external_response source=SileneExpert rows=%s", len(rows))
+    return rows
 
 
 def _export_mapped_rows(rows: list[dict[str, Any]], export_file: Path) -> None:
@@ -712,6 +721,17 @@ def search_silene_expert_mapped(
         current_page = 1
         pages = 0
         while True:
+            logger.info(
+                "external_request source=SileneExpertMapped page=%s limit=%s family=%s genus=%s species=%s country=%s date_from=%s date_to=%s",
+                current_page,
+                safe_limit,
+                family,
+                genus,
+                species,
+                country,
+                date_from,
+                date_to,
+            )
             batch = search_silene_expert_mapped(
                 family=family,
                 genus=genus,
@@ -727,6 +747,7 @@ def search_silene_expert_mapped(
             )
             if not batch:
                 break
+            logger.info("external_response source=SileneExpertMapped page=%s rows=%s", current_page, len(batch))
             collected.extend(batch)
             if max_records is not None and len(collected) >= int(max_records):
                 collected = collected[: int(max_records)]
@@ -739,6 +760,14 @@ def search_silene_expert_mapped(
                 break
 
         collected = filter_rows_by_date_range(collected, date_from=date_from, date_to=date_to)
+        logger.info(
+            "pagination_summary source=SileneExpert fetch_all=true page_limit=%s max_pages=%s max_records=%s pages=%s rows=%s",
+            safe_limit,
+            max_pages,
+            max_records,
+            pages + 1 if collected else pages,
+            len(collected),
+        )
         if include_iucn:
             collected = _enrich_mapped_rows_iucn(collected)
         if export_csv:

@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Any
 from Backend.app.utils.csv_export_cache import (
@@ -13,8 +15,11 @@ from Backend.app.utils.date_filters import parse_query_date_range
 from Backend.app.services.combined_service import COMBINED_EXPORT_FILE, search_gbif_and_silene_expert
 from Backend.app.utils.auth import optional_current_user
 from Backend.app.utils.history import remember_search
+from Backend.app.utils.request_debug import log_endpoint_result, params_hash
 
 router = APIRouter(prefix="/combined", tags=["combined"])
+COMBINED_PREVIEW_EXPORT_FILE = COMBINED_EXPORT_FILE.with_name("gbif_silene_inaturalist_preview_results.csv")
+logger = logging.getLogger(__name__)
 
 
 @router.get("/search")
@@ -34,6 +39,18 @@ def search(
         start_date, end_date = parse_query_date_range(date_from, date_to)
     except ValueError:
         raise HTTPException(status_code=400, detail="date_from/date_to must be YYYY-MM-DD and date_from <= date_to.")
+    debug_params = {
+        "family": family,
+        "genus": genus,
+        "species": species,
+        "country": country,
+        "date_from": date_from,
+        "date_to": date_to,
+        "quality_grade": quality_grade,
+        "limit": limit,
+        "page": page,
+        "fetch_all": False,
+    }
     data = search_gbif_and_silene_expert(
         family=family,
         genus=genus,
@@ -45,10 +62,18 @@ def search(
         limit=limit,
         page=page,
         export_csv=False,
-        source_timeout=12,
+        source_timeout=None,
+    )
+    log_endpoint_result(
+        logger,
+        endpoint="/combined/search",
+        user=user,
+        params=debug_params,
+        rows=data,
+        extra={"params_hash": params_hash(debug_params), "source_timeout": None},
     )
     write_rows_export(
-        COMBINED_EXPORT_FILE,
+        COMBINED_PREVIEW_EXPORT_FILE,
         data,
         export_signature(
             "combined_search",
@@ -100,6 +125,18 @@ def export_csv(
     except ValueError:
         raise HTTPException(status_code=400, detail="date_from/date_to must be YYYY-MM-DD and date_from <= date_to.")
 
+    debug_params = {
+        "family": family,
+        "genus": genus,
+        "species": species,
+        "country": country,
+        "date_from": date_from,
+        "date_to": date_to,
+        "quality_grade": quality_grade,
+        "limit": limit,
+        "max_pages": max_pages,
+        "fetch_all": True,
+    }
     signature = export_signature(
         "combined",
         family=family,
@@ -113,7 +150,7 @@ def export_csv(
         max_pages=max_pages,
     )
     if refresh or not cached_export_matches(COMBINED_EXPORT_FILE, signature):
-        search_gbif_and_silene_expert(
+        rows = search_gbif_and_silene_expert(
             family=family,
             genus=genus,
             species=species,
@@ -131,5 +168,20 @@ def export_csv(
             export_file=COMBINED_EXPORT_FILE,
         )
         remember_export(COMBINED_EXPORT_FILE, signature)
+        log_endpoint_result(
+            logger,
+            endpoint="/combined/search/csv",
+            user=None,
+            params=debug_params,
+            rows=rows,
+            extra={"cache": "miss", "params_hash": params_hash(debug_params)},
+        )
+    else:
+        logger.info(
+            "request_debug endpoint=/combined/search/csv user=anonymous params_hash=%s params=%s cache=hit file=%s",
+            params_hash(debug_params),
+            signature,
+            COMBINED_EXPORT_FILE,
+        )
 
     return csv_file_response(COMBINED_EXPORT_FILE, "gbif_silene_inaturalist_results.csv")

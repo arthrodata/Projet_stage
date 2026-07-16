@@ -314,13 +314,26 @@ def search_inaturalist(
     def fetch_page(page_number: int) -> tuple[list[dict[str, Any]], int | None]:
         last_error: requests.RequestException | None = None
         for attempt in range(3):
+            request_params = {**params, "page": int(page_number)}
+            logger.info(
+                "external_request source=iNaturalist url=%s params=%s attempt=%s",
+                f"{INATURALIST_API_BASE_URL}/observations",
+                request_params,
+                attempt + 1,
+            )
             try:
                 response = _session().get(
                     f"{INATURALIST_API_BASE_URL}/observations",
-                    params={**params, "page": int(page_number)},
+                    params=request_params,
                     timeout=30,
                 )
                 if getattr(response, "status_code", None) in TRANSIENT_STATUS_CODES and attempt < 2:
+                    logger.warning(
+                        "external_retry source=iNaturalist status=%s page=%s attempt=%s",
+                        getattr(response, "status_code", None),
+                        page_number,
+                        attempt + 1,
+                    )
                     time.sleep(0.5 * (attempt + 1))
                     continue
                 response.raise_for_status()
@@ -334,6 +347,7 @@ def search_inaturalist(
                     not is_transient_exception
                     and status_code not in TRANSIENT_STATUS_CODES
                 ) or attempt >= 2:
+                    logger.warning("external_error source=iNaturalist page=%s error=%s", page_number, exc)
                     raise
                 time.sleep(0.5 * (attempt + 1))
         else:
@@ -345,6 +359,12 @@ def search_inaturalist(
         total_results = payload.get("total_results") if isinstance(payload, dict) else None
         total = int(total_results) if isinstance(total_results, int) else None
         rows = [item for item in results if isinstance(item, dict)] if isinstance(results, list) else []
+        logger.info(
+            "external_response source=iNaturalist page=%s rows=%s total_results=%s",
+            page_number,
+            len(rows),
+            total,
+        )
         return rows, total
 
     def fetch_page_or_empty(page_number: int) -> tuple[list[dict[str, Any]], int | None]:
@@ -393,6 +413,13 @@ def search_inaturalist(
 
         if max_records is not None and len(observations) >= int(max_records):
             observations = observations[: int(max_records)]
+        logger.info(
+            "pagination_summary source=iNaturalist fetch_all=true page_limit=%s max_pages=%s max_records=%s rows=%s",
+            safe_limit,
+            max_pages,
+            max_records,
+            len(observations),
+        )
     else:
         observations, _ = fetch_page(safe_page)
 

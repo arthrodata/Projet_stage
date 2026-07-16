@@ -33,6 +33,7 @@ def _future_rows(source_name: str, future) -> list[dict[str, Any]]:
     except Exception:
         logger.exception("Combined search source failed: %s", source_name)
         return []
+    logger.info("combined_source_result source=%s rows=%s", source_name, len(rows or []))
     return rows or []
 
 
@@ -41,7 +42,7 @@ def _collect_source_rows(futures: dict[str, Any], source_timeout: float | None) 
         done, pending = wait(futures.values(), timeout=source_timeout)
         for source_name, future in futures.items():
             if future in pending:
-                logger.warning("Combined search source timed out: %s", source_name)
+                logger.warning("combined_source_timeout source=%s timeout=%s", source_name, source_timeout)
                 future.cancel()
     else:
         done = set(futures.values())
@@ -210,4 +211,18 @@ def search_gbif_and_silene_expert(
             encoding="utf-8-sig",
         )
 
+    logger.info(
+        "combined_summary rows=%s source_counts=%s fetch_all=%s max_pages=%s max_records=%s source_timeout=%s",
+        len(combined),
+        {
+            "GBIF": len(gbif_rows or []),
+            "Silene Expert": len(silene_rows or []),
+            "iNaturalist": len(inaturalist_rows or []),
+            "STELI": len(steli_rows or []),
+        },
+        fetch_all,
+        max_pages,
+        max_records,
+        source_timeout,
+    )
     return combined

@@ -184,11 +184,11 @@ class TestCsvExportRoutes(unittest.TestCase):
         ]
 
         with tempfile.TemporaryDirectory() as tmp:
-            export_file = Path(tmp) / "resultats_gbif_silene_inaturalist.csv"
+            export_file = Path(tmp) / "resultats_gbif_silene_inaturalist_preview.csv"
             original = "source_bdd,species\nfull,export\n"
             export_file.write_text(original, encoding="utf-8")
 
-            with patch("Backend.app.routes.combined.COMBINED_EXPORT_FILE", export_file), patch(
+            with patch("Backend.app.routes.combined.COMBINED_PREVIEW_EXPORT_FILE", export_file), patch(
                 "Backend.app.routes.combined.search_gbif_and_silene_expert",
                 return_value=rows,
             ):
@@ -201,6 +201,18 @@ class TestCsvExportRoutes(unittest.TestCase):
             self.assertIn("GBIF", content)
             self.assertIn("iNaturalist", content)
 
+    def test_combined_search_does_not_use_partial_source_timeout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            export_file = Path(tmp) / "resultats_gbif_silene_inaturalist_preview.csv"
+
+            with patch("Backend.app.routes.combined.COMBINED_PREVIEW_EXPORT_FILE", export_file), patch(
+                "Backend.app.routes.combined.search_gbif_and_silene_expert",
+                return_value=[],
+            ) as service:
+                combined.search(species="Panthera leo")
+
+        self.assertIsNone(service.call_args.kwargs["source_timeout"])
+
     def test_gbif_search_updates_export_csv(self):
         rows = [
             {"source_bdd": "GBIF", "species": "Panthera leo", "country": "Kenya"},
@@ -208,11 +220,11 @@ class TestCsvExportRoutes(unittest.TestCase):
         ]
 
         with tempfile.TemporaryDirectory() as tmp:
-            export_file = Path(tmp) / "resultats.csv"
+            export_file = Path(tmp) / "resultats_preview.csv"
             original = "source_bdd,species\nfull,export\n"
             export_file.write_text(original, encoding="utf-8")
 
-            with patch("Backend.app.routes.search.EXPORT_FILE", export_file), patch(
+            with patch("Backend.app.routes.search.PREVIEW_EXPORT_FILE", export_file), patch(
                 "Backend.app.routes.search.search_gbif",
                 return_value=rows,
             ):
@@ -225,6 +237,36 @@ class TestCsvExportRoutes(unittest.TestCase):
             self.assertIn("Panthera leo", content)
             self.assertIn("Panthera pardus", content)
 
+    def test_gbif_search_does_not_invalidate_full_csv_cache(self):
+        rows = [{"source_bdd": "GBIF", "species": "Panthera leo", "country": "Kenya"}]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            export_file = Path(tmp) / "resultats.csv"
+            preview_file = Path(tmp) / "resultats_preview.csv"
+            export_file.write_text("source_bdd,species\nGBIF,Panthera leo\n", encoding="utf-8")
+            signature = export_signature(
+                "gbif",
+                family=None,
+                genus=None,
+                species="Panthera leo",
+                country=None,
+                date_from=None,
+                date_to=None,
+                limit=300,
+                max_pages=None,
+            )
+            remember_export(export_file, signature)
+
+            with patch("Backend.app.routes.search.EXPORT_FILE", export_file), patch(
+                "Backend.app.routes.search.PREVIEW_EXPORT_FILE", preview_file
+            ), patch("Backend.app.routes.search.search_gbif", return_value=rows) as service:
+                search.search(species="Panthera leo")
+                service.reset_mock()
+                response = search.export_csv(species="Panthera leo")
+
+        service.assert_not_called()
+        self.assertEqual(response.path, str(export_file))
+
     def test_silene_search_updates_export_csv(self):
         rows = [
             {"source_bdd": "Silene Expert", "species": "Cydia pomonella", "country": "France"},
@@ -232,11 +274,11 @@ class TestCsvExportRoutes(unittest.TestCase):
         ]
 
         with tempfile.TemporaryDirectory() as tmp:
-            export_file = Path(tmp) / "resultats_silene_expert.csv"
+            export_file = Path(tmp) / "resultats_silene_expert_preview.csv"
             original = "source_bdd,species\nfull,export\n"
             export_file.write_text(original, encoding="utf-8")
 
-            with patch("Backend.app.routes.silene_expert.EXPORT_FILE", export_file), patch(
+            with patch("Backend.app.routes.silene_expert.PREVIEW_EXPORT_FILE", export_file), patch(
                 "Backend.app.routes.silene_expert.search_silene_expert_mapped",
                 return_value=rows,
             ):
@@ -266,11 +308,11 @@ class TestCsvExportRoutes(unittest.TestCase):
         ]
 
         with tempfile.TemporaryDirectory() as tmp:
-            export_file = Path(tmp) / "resultats_inaturalist.csv"
+            export_file = Path(tmp) / "resultats_inaturalist_preview.csv"
             original = "source_bdd,species\nfull,export\n"
             export_file.write_text(original, encoding="utf-8")
 
-            with patch("Backend.app.routes.inaturalist.EXPORT_FILE", export_file), patch(
+            with patch("Backend.app.routes.inaturalist.PREVIEW_EXPORT_FILE", export_file), patch(
                 "Backend.app.routes.inaturalist.search_inaturalist",
                 return_value=rows,
             ):
