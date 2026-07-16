@@ -9,7 +9,7 @@ const DEFAULT_MAX_EXPORT_PAGES = "34";
 
 const SOURCE_CONFIG = {
     gbif: {
-        filename: "results.csv",
+        filename: "gbif_results.csv",
         source: "GBIF",
         badge: "gbif",
         url: `${API_URL}/search/csv`,
@@ -176,6 +176,7 @@ function buildDownloadUrl(entry) {
     query.append("limit", DEFAULT_EXPORT_PAGE_LIMIT);
     const maxPages = params.maxPages || DEFAULT_MAX_EXPORT_PAGES;
     if (maxPages && maxPages !== "50") query.append("max_pages", maxPages);
+    query.append("_", String(Date.now()));
     const source = params.source || (entry && entry.source) || "";
     if ((source === "inaturalist" || source === "both" || source === "combined") && params.qualityGrade) {
         query.append("quality_grade", params.qualityGrade);
