@@ -5,7 +5,7 @@ requireAuth();
 const API_URL = window.API_URL;
 const HISTORY_KEY = getAuthStorageKey("biodiversity:search_history_v1");
 const DEFAULT_EXPORT_PAGE_LIMIT = "300";
-const DEFAULT_MAX_EXPORT_PAGES = "67";
+const DEFAULT_MAX_EXPORT_PAGES = "34";
 
 const SOURCE_CONFIG = {
     gbif: {

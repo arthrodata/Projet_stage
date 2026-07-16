@@ -8,7 +8,7 @@ const LAST_RESULTS_KEY = getAuthStorageKey("biodiversity_last_results");
 const HISTORY_KEY = getAuthStorageKey("biodiversity:search_history_v1");
 const DEFAULT_RESULT_LIMIT = "300";
 const DEFAULT_EXPORT_PAGE_LIMIT = "300";
-const DEFAULT_MAX_EXPORT_PAGES = "67";
+const DEFAULT_MAX_EXPORT_PAGES = "34";
 const STORED_RESULTS_LIMIT = 1000;
 const SEARCH_TIMEOUT_MS = 45000;
 
